@@ -170,15 +170,18 @@ def add_depth_effect(img: Image.Image, color: tuple, depth: int) -> Image.Image:
     # Create new image with extra space for depth
     result = Image.new("RGBA", (width + depth, height + depth), (0, 0, 0, 0))
     
-    # Create darker shade for the sides
-    dark_factor = 0.7
-    side_color = tuple(int(c * dark_factor) for c in color) + (255,)
+    # Always use white for the 3D mesh/depth layers
+    white_color = (255, 255, 255)
     
-    # Draw depth layers from back to front
+    # Create darker shade for the sides using white
+    dark_factor = 0.7
+    side_color = tuple(int(c * dark_factor) for c in white_color) + (255,)
+    
+    # Draw depth layers from back to front using white
     for i in range(depth, 0, -1):
         # Calculate shade (darker at back, lighter toward front)
         shade = 0.6 + (0.4 * (depth - i) / depth)
-        layer_color = tuple(int(c * shade) for c in color) + (255,)
+        layer_color = tuple(int(c * shade) for c in white_color) + (255,)
         
         # Create a layer
         layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
