@@ -10,22 +10,26 @@ import math
 def create_pillow_mockup(
     design_bytes: bytes,
     pillow_color: tuple = (245, 245, 245),
-    padding: int = 60,
-    depth: int = 25,
-    shadow_offset: int = 20
+    padding: int = 20,
+    depth: int = 0,
+    shadow_offset: int = 15,
+    stroke_width: int = 3,
+    stroke_color: tuple = (100, 100, 100)
 ) -> bytes:
     """
-    Create a realistic pillow mockup that follows the shape of the design.
+    Create a mockup with just the design and a stroke around its edges.
     
     Args:
         design_bytes: PNG image bytes (with transparent background)
-        pillow_color: RGB tuple for pillow fabric color
-        padding: Padding around the design (pillow border)
-        depth: 3D depth effect intensity
+        pillow_color: RGB tuple (not used, kept for compatibility)
+        padding: Padding around the design
+        depth: Not used, kept for compatibility
         shadow_offset: Drop shadow offset
+        stroke_width: Width of the stroke around the design
+        stroke_color: RGB tuple for stroke color
         
     Returns:
-        bytes: PNG image of pillow mockup
+        bytes: PNG image of mockup with stroke
     """
     # Load the design image
     design = Image.open(io.BytesIO(design_bytes)).convert("RGBA")
@@ -42,54 +46,33 @@ def create_pillow_mockup(
     
     design_width, design_height = design.size
     
-    # Calculate pillow size with padding
-    pillow_width = design_width + padding * 2
-    pillow_height = design_height + padding * 2
-    
-    # Canvas size (extra space for shadow and depth)
-    canvas_width = pillow_width + shadow_offset + depth + 40
-    canvas_height = pillow_height + shadow_offset + depth + 40
+    # Canvas size (extra space for stroke, shadow and padding)
+    canvas_width = design_width + padding * 2 + shadow_offset + stroke_width * 2
+    canvas_height = design_height + padding * 2 + shadow_offset + stroke_width * 2
     
     # Create canvas with transparent background
     canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 0))
     
-    # Create pillow shape based on design alpha
-    pillow_shape = create_pillow_shape_from_design(
-        alpha, pillow_width, pillow_height, padding, pillow_color
-    )
+    # Position for design
+    base_x = padding + stroke_width
+    base_y = padding + stroke_width
     
-    # Add 3D depth effect
-    pillow_with_depth = add_depth_effect(pillow_shape, pillow_color, depth)
+    # Create stroke around the design
+    stroke_layer = create_stroke_around_design(alpha, stroke_width, stroke_color)
     
-    # Add fabric texture
-    pillow_textured = add_fabric_texture(pillow_with_depth, pillow_color)
-    
-    # Create drop shadow
-    shadow = create_drop_shadow(pillow_textured, shadow_offset, opacity=100)
-    
-    # Position everything on canvas
-    base_x = 20
-    base_y = 20
+    # Create drop shadow from the design itself
+    shadow = create_drop_shadow(design, shadow_offset, opacity=80)
     
     # Paste shadow first
     canvas.paste(shadow, (base_x + shadow_offset, base_y + shadow_offset), shadow)
     
-    # Paste pillow with depth
-    canvas.paste(pillow_textured, (base_x, base_y), pillow_textured)
+    # Paste stroke layer (slightly offset to be behind design)
+    stroke_x = base_x - stroke_width
+    stroke_y = base_y - stroke_width
+    canvas.paste(stroke_layer, (stroke_x, stroke_y), stroke_layer)
     
-    # Apply design with fabric effect
-    design_with_effect = apply_print_effect(design)
-    
-    # Position design centered on pillow
-    design_x = base_x + padding
-    design_y = base_y + padding
-    canvas.paste(design_with_effect, (design_x, design_y), design_with_effect)
-    
-    # Add highlight overlay for 3D effect
-    canvas = add_highlight_overlay(canvas, pillow_width, pillow_height, base_x, base_y)
-    
-    # Add seam/stitch effect around the edge
-    canvas = add_seam_effect(canvas, pillow_shape, base_x, base_y, padding)
+    # Paste the design on top
+    canvas.paste(design, (base_x, base_y), design)
     
     # Convert to bytes
     output = io.BytesIO()
@@ -97,6 +80,41 @@ def create_pillow_mockup(
     output.seek(0)
     
     return output.getvalue()
+
+
+def create_stroke_around_design(alpha: Image.Image, stroke_width: int, 
+                                 stroke_color: tuple) -> Image.Image:
+    """Create a stroke/outline around the design based on its alpha channel."""
+    # Expand the alpha to create stroke area
+    expanded = alpha.copy()
+    for _ in range(stroke_width):
+        expanded = expanded.filter(ImageFilter.MaxFilter(3))
+    
+    # Create stroke by subtracting original from expanded
+    stroke_alpha = Image.new("L", alpha.size, 0)
+    
+    for x in range(alpha.width):
+        for y in range(alpha.height):
+            exp_val = expanded.getpixel((x, y))
+            orig_val = alpha.getpixel((x, y))
+            # Stroke is where expanded exists but original doesn't
+            if exp_val > 50 and orig_val < 200:
+                stroke_alpha.putpixel((x, y), exp_val)
+    
+    # Smooth the stroke edges slightly
+    stroke_alpha = stroke_alpha.filter(ImageFilter.GaussianBlur(0.5))
+    
+    # Create the stroke image with the new size (accounting for expansion)
+    new_width = alpha.width + stroke_width * 2
+    new_height = alpha.height + stroke_width * 2
+    
+    stroke_image = Image.new("RGBA", (new_width, new_height), (0, 0, 0, 0))
+    colored_stroke = Image.new("RGBA", alpha.size, stroke_color + (255,))
+    
+    # Paste stroke at center
+    stroke_image.paste(colored_stroke, (stroke_width, stroke_width), stroke_alpha)
+    
+    return stroke_image
 
 
 def create_pillow_shape_from_design(alpha: Image.Image, width: int, height: int, 
@@ -317,27 +335,28 @@ def add_seam_effect(canvas: Image.Image, pillow_shape: Image.Image,
     return canvas
 
 
-def create_colored_pillow_mockup(design_bytes: bytes, color: str = "white") -> bytes:
-    """Create pillow mockup with specified color name."""
-    colors = {
+def create_colored_pillow_mockup(design_bytes: bytes, color: str = "gray") -> bytes:
+    """Create mockup with specified stroke color name."""
+    # Stroke colors for different styles
+    stroke_colors = {
         "white": (255, 255, 255),
-        "cream": (255, 253, 240),
-        "beige": (245, 235, 220),
-        "gray": (200, 200, 200),
-        "black": (50, 50, 50),
+        "cream": (200, 190, 170),
+        "beige": (180, 160, 140),
+        "gray": (100, 100, 100),
+        "black": (30, 30, 30),
         "navy": (35, 50, 85),
-        "blush": (255, 228, 225),
-        "sage": (198, 215, 198),
+        "blush": (200, 150, 150),
+        "sage": (120, 150, 120),
     }
     
-    pillow_color = colors.get(color.lower(), (255, 255, 255))
+    stroke_color = stroke_colors.get(color.lower(), (100, 100, 100))
     
     return create_pillow_mockup(
         design_bytes,
-        pillow_color=pillow_color,
-        padding=50,
-        depth=20,
-        shadow_offset=15
+        padding=25,
+        shadow_offset=12,
+        stroke_width=4,
+        stroke_color=stroke_color
     )
 
 

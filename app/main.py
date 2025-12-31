@@ -19,6 +19,7 @@ from .database import get_db, init_db, ImageRecord
 from .background_remover import remove_background, get_image_info
 from .pdf_generator import create_simple_pdf, create_masonry_pdf, create_bento_pdf
 from .mockup_generator import create_pillow_mockup, create_colored_pillow_mockup
+from .pillow_3d_generator import create_3d_pillow_mockup, create_simple_pillow_glb, create_custom_pillow_glb
 
 # Global executor for CPU-bound tasks (background removal)
 # Using ProcessPoolExecutor for true parallelism on multi-core systems
@@ -74,11 +75,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 MOCKUP_DIR = os.path.join(BASE_DIR, "data", "mockups")
+GLB_DIR = os.path.join(BASE_DIR, "data", "glb_mockups")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 PDF_DIR = os.path.join(BASE_DIR, "data", "pdfs")
 
 # Ensure directories exist
-for dir_path in [UPLOAD_DIR, PROCESSED_DIR, MOCKUP_DIR, STATIC_DIR, PDF_DIR]:
+for dir_path in [UPLOAD_DIR, PROCESSED_DIR, MOCKUP_DIR, STATIC_DIR, PDF_DIR, GLB_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 
 
@@ -232,6 +234,76 @@ async def delete_image(image_id: int, db: Session = Depends(get_db)):
     return {"success": True, "message": "Image deleted successfully"}
 
 
+# ============== OPTIMIZED QUICK MOCKUP ENDPOINT ==============
+
+@app.post("/api/quick-mockup")
+async def quick_mockup(
+    file: UploadFile = File(...),
+    thickness: str = "medium",
+    puffiness: str = "medium"
+):
+    """
+    Optimized single endpoint: Upload image → Remove background → Generate 3D GLB mockup.
+    Returns GLB file directly without database storage for maximum speed.
+    
+    - **file**: Image file (JPEG, PNG, WebP)
+    - **thickness**: Pillow thickness (thin/medium/thick)
+    - **puffiness**: Pillow puffiness (flat/medium/puffy)
+    """
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    try:
+        # Read file content once
+        file_content = await file.read()
+        
+        # Step 1: Remove background (use thread pool - more stable with C libraries)
+        loop = asyncio.get_event_loop()
+        print(f"[DEBUG] Starting background removal")
+        bg_removed_bytes = await loop.run_in_executor(
+            thread_executor,  # Use thread pool instead of process pool
+            remove_background,
+            file_content
+        )
+        print(f"[DEBUG] Background removed, size: {len(bg_removed_bytes)} bytes")
+        
+        # Step 2: Generate 3D GLB mockup (use thread pool)
+        print(f"[DEBUG] Starting 3D generation with thickness={thickness}, puffiness={puffiness}")
+        glb_bytes = await loop.run_in_executor(
+            thread_executor,  # Use thread pool instead of process pool
+            create_custom_pillow_glb,
+            bg_removed_bytes,
+            thickness,
+            puffiness
+        )
+        print(f"[DEBUG] GLB generated, size: {len(glb_bytes)} bytes")
+        
+        # Return GLB file directly
+        return Response(
+            content=glb_bytes,
+            media_type="model/gltf-binary",
+            headers={
+                "Content-Disposition": f"attachment; filename=pillow_mockup.glb"
+            }
+        )
+        
+    except ValueError as e:
+        print(f"[ERROR] ValueError: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"[ERROR] Exception: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+
+
 # ============== PDF GENERATION ENDPOINTS ==============
 
 @app.get("/api/pdf/originals")
@@ -379,19 +451,21 @@ async def get_stats(db: Session = Depends(get_db)):
     }
 
 
-# ============== PILLOW MOCKUP ENDPOINTS ==============
+# ============== 3D PILLOW MOCKUP ENDPOINTS ==============
 
 @app.get("/api/images/{image_id}/mockup")
 async def get_pillow_mockup(
     image_id: int,
-    color: str = "white",
+    thickness: str = "medium",
+    puffiness: str = "medium",
     db: Session = Depends(get_db)
 ):
     """
-    Generate a pillow mockup with the processed image.
+    Generate a 3D pillow mockup (GLB) with the processed image.
     
     - **image_id**: ID of the processed image
-    - **color**: Pillow color (white, cream, beige, gray, black, navy, blush, sage)
+    - **thickness**: Pillow thickness ('thin', 'medium', 'thick')
+    - **puffiness**: Pillow puffiness ('flat', 'medium', 'puffy')
     """
     record = db.query(ImageRecord).filter(ImageRecord.id == image_id).first()
     if not record:
@@ -405,33 +479,35 @@ async def get_pillow_mockup(
         with open(record.processed_path, "rb") as f:
             processed_bytes = f.read()
         
-        # Generate mockup
+        # Generate 3D mockup
         loop = asyncio.get_event_loop()
-        mockup_bytes = await loop.run_in_executor(
+        glb_bytes = await loop.run_in_executor(
             thread_executor,
-            partial(create_colored_pillow_mockup, processed_bytes, color)
+            partial(create_custom_pillow_glb, processed_bytes, thickness, puffiness)
         )
         
         return Response(
-            content=mockup_bytes,
-            media_type="image/png",
-            headers={"Content-Disposition": f"inline; filename=pillow_mockup_{image_id}.png"}
+            content=glb_bytes,
+            media_type="model/gltf-binary",
+            headers={"Content-Disposition": f"attachment; filename=pillow_mockup_{image_id}.glb"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating mockup: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating 3D mockup: {str(e)}")
 
 
 @app.post("/api/mockup")
 async def create_mockup_from_upload(
     file: UploadFile = File(...),
-    color: str = "white",
+    thickness: str = "medium",
+    puffiness: str = "medium",
     remove_bg: bool = True
 ):
     """
-    Upload an image and generate a pillow mockup directly.
+    Upload an image and generate a 3D pillow mockup (GLB) directly.
     
     - **file**: Image file (PNG with transparent background, or any image if remove_bg=True)
-    - **color**: Pillow color (white, cream, beige, gray, black, navy, blush, sage)
+    - **thickness**: Pillow thickness ('thin', 'medium', 'thick')
+    - **puffiness**: Pillow puffiness ('flat', 'medium', 'puffy')
     - **remove_bg**: Whether to remove background first (default: True)
     """
     allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
@@ -455,32 +531,34 @@ async def create_mockup_from_upload(
         else:
             processed_bytes = file_content
         
-        # Generate mockup
-        mockup_bytes = await loop.run_in_executor(
+        # Generate 3D mockup
+        glb_bytes = await loop.run_in_executor(
             thread_executor,
-            partial(create_colored_pillow_mockup, processed_bytes, color)
+            partial(create_custom_pillow_glb, processed_bytes, thickness, puffiness)
         )
         
         return Response(
-            content=mockup_bytes,
-            media_type="image/png",
-            headers={"Content-Disposition": "inline; filename=pillow_mockup.png"}
+            content=glb_bytes,
+            media_type="model/gltf-binary",
+            headers={"Content-Disposition": "attachment; filename=pillow_mockup.glb"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating mockup: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating 3D mockup: {str(e)}")
 
 
 @app.post("/api/remove-background-with-mockup")
 async def remove_background_with_mockup(
     file: UploadFile = File(...),
-    color: str = "white",
+    thickness: str = "medium",
+    puffiness: str = "medium",
     db: Session = Depends(get_db)
 ):
     """
-    Upload an image, remove background, save it, AND return pillow mockup.
+    Upload an image, remove background, save it, AND return 3D pillow mockup (GLB).
     
     - **file**: Image file (JPEG, PNG, WebP)
-    - **color**: Pillow color for mockup (white, cream, beige, gray, black, navy, blush, sage)
+    - **thickness**: Pillow thickness ('thin', 'medium', 'thick')
+    - **puffiness**: Pillow puffiness ('flat', 'medium', 'puffy')
     """
     allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
     if file.content_type not in allowed_types:
@@ -497,11 +575,11 @@ async def remove_background_with_mockup(
         unique_id = str(uuid.uuid4())
         original_filename = f"{unique_id}_original{file_ext}"
         processed_filename = f"{unique_id}_processed.png"
-        mockup_filename = f"{unique_id}_mockup.png"
+        glb_filename = f"{unique_id}_mockup.glb"
         
         original_path = os.path.join(UPLOAD_DIR, original_filename)
         processed_path = os.path.join(PROCESSED_DIR, processed_filename)
-        mockup_path = os.path.join(MOCKUP_DIR, mockup_filename)
+        glb_path = os.path.join(GLB_DIR, glb_filename)
         
         loop = asyncio.get_event_loop()
         
@@ -511,17 +589,17 @@ async def remove_background_with_mockup(
         
         _, processed_bytes = await asyncio.gather(save_task, process_task)
         
-        # Generate mockup and save processed concurrently
+        # Generate 3D mockup and save processed concurrently
         save_processed_task = save_file_async(processed_path, processed_bytes)
         mockup_task = loop.run_in_executor(
             thread_executor,
-            partial(create_colored_pillow_mockup, processed_bytes, color)
+            partial(create_custom_pillow_glb, processed_bytes, thickness, puffiness)
         )
         
-        _, mockup_bytes = await asyncio.gather(save_processed_task, mockup_task)
+        _, glb_bytes = await asyncio.gather(save_processed_task, mockup_task)
         
-        # Save mockup
-        await save_file_async(mockup_path, mockup_bytes)
+        # Save GLB file
+        await save_file_async(glb_path, glb_bytes)
         
         # Store in database
         image_record = ImageRecord(
@@ -537,15 +615,16 @@ async def remove_background_with_mockup(
         
         return {
             "success": True,
-            "message": "Background removed and mockup generated",
+            "message": "Background removed and 3D mockup generated",
             "data": {
                 "id": image_record.id,
                 "original_filename": file.filename,
                 "original_url": f"/api/images/{image_record.id}/original",
                 "processed_url": f"/api/images/{image_record.id}/processed",
-                "mockup_url": f"/api/images/{image_record.id}/mockup?color={color}",
+                "mockup_url": f"/api/images/{image_record.id}/mockup?thickness={thickness}&puffiness={puffiness}",
                 "original_size": len(file_content),
-                "processed_size": len(processed_bytes)
+                "processed_size": len(processed_bytes),
+                "glb_size": len(glb_bytes)
             }
         }
         

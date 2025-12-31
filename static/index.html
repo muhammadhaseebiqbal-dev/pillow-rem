@@ -4,7 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Background Removal & Pillow Mockup Generator</title>
+    <title>3D Pillow Mockup Generator</title>
+    <!-- Three.js for 3D GLB viewing -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
     <style>
         :root {
             --primary: #6366f1;
@@ -66,6 +75,17 @@
             font-size: 1.1rem;
         }
 
+        .badge-3d {
+            display: inline-block;
+            background: var(--gradient-2);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
         .stats-bar {
             display: flex;
             justify-content: center;
@@ -92,47 +112,6 @@
             font-size: 0.75rem;
             color: var(--text-muted);
             text-transform: uppercase;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            background: var(--bg-card);
-            padding: 0.5rem;
-            border-radius: 0.75rem;
-            border: 1px solid var(--border);
-        }
-
-        .tab {
-            flex: 1;
-            padding: 1rem;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 0.5rem;
-            transition: all 0.2s ease;
-        }
-
-        .tab:hover {
-            color: var(--text);
-            background: var(--bg-elevated);
-        }
-
-        .tab.active {
-            background: var(--gradient-1);
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
         }
 
         .card {
@@ -190,63 +169,52 @@
             display: none;
         }
 
-        /* Color selector */
-        .color-selector {
+        /* Settings selectors */
+        .settings-row {
             display: flex;
-            gap: 0.5rem;
-            margin: 1rem 0;
+            gap: 2rem;
+            margin: 1.5rem 0;
             flex-wrap: wrap;
             justify-content: center;
         }
 
-        .color-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 3px solid transparent;
+        .setting-group {
+            text-align: center;
+        }
+
+        .setting-group label {
+            display: block;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .option-selector {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--bg-elevated);
+            padding: 0.25rem;
+            border-radius: 0.5rem;
+        }
+
+        .option-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            border-radius: 0.35rem;
             cursor: pointer;
             transition: all 0.2s;
+            font-size: 0.85rem;
         }
 
-        .color-btn:hover {
-            transform: scale(1.1);
+        .option-btn:hover {
+            color: var(--text);
         }
 
-        .color-btn.active {
-            border-color: var(--primary);
-            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
-        }
-
-        .color-btn[data-color="white"] {
-            background: #fff;
-        }
-
-        .color-btn[data-color="cream"] {
-            background: #fffdf0;
-        }
-
-        .color-btn[data-color="beige"] {
-            background: #f5ebdc;
-        }
-
-        .color-btn[data-color="gray"] {
-            background: #c8c8c8;
-        }
-
-        .color-btn[data-color="black"] {
-            background: #282828;
-        }
-
-        .color-btn[data-color="navy"] {
-            background: #1c2a4a;
-        }
-
-        .color-btn[data-color="blush"] {
-            background: #ffe4e1;
-        }
-
-        .color-btn[data-color="sage"] {
-            background: #c6d7c6;
+        .option-btn.active {
+            background: var(--primary);
+            color: white;
         }
 
         .btn {
@@ -304,18 +272,19 @@
             display: flex;
             gap: 0.5rem;
             flex-wrap: wrap;
+            justify-content: center;
         }
 
-        /* 3-panel preview */
-        .preview-triple {
+        /* Preview panels */
+        .preview-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 1rem;
             margin-top: 1.5rem;
         }
 
         @media (max-width: 900px) {
-            .preview-triple {
+            .preview-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -337,7 +306,7 @@
         .preview-image-container {
             background: repeating-conic-gradient(#334155 0% 25%, #1e293b 0% 50%) 50% / 16px 16px;
             border-radius: 0.5rem;
-            min-height: 200px;
+            min-height: 250px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -348,6 +317,71 @@
             max-width: 100%;
             max-height: 280px;
             object-fit: contain;
+        }
+
+        /* 3D Viewer */
+        .viewer-3d-container {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 0.5rem;
+            min-height: 350px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #viewer3d {
+            width: 100%;
+            height: 350px;
+        }
+
+        .viewer-controls {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+        }
+
+        .viewer-controls button {
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .viewer-controls button:hover {
+            background: var(--primary);
+        }
+
+        .loading-3d {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .loading-3d .spinner-3d {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .status-bar {
@@ -388,127 +422,6 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* PDF & Mockup Export */
-        .export-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-
-        .export-card {
-            background: var(--bg-elevated);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-        }
-
-        .export-card:hover {
-            border-color: var(--primary);
-        }
-
-        .export-card h4 {
-            margin-bottom: 0.5rem;
-        }
-
-        .export-card p {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-        }
-
-        /* History Grid */
-        .history-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 1rem;
-        }
-
-        .history-item {
-            background: var(--bg-elevated);
-            border-radius: 0.75rem;
-            overflow: hidden;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .history-item:hover {
-            border-color: var(--primary);
-            transform: translateY(-3px);
-        }
-
-        .history-thumb {
-            aspect-ratio: 1;
-            background: repeating-conic-gradient(#334155 0% 25%, #1e293b 0% 50%) 50% / 10px 10px;
-            position: relative;
-        }
-
-        .history-thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .history-thumb .badge {
-            position: absolute;
-            top: 0.5rem;
-            left: 0.5rem;
-            background: var(--primary);
-            color: white;
-            font-size: 0.65rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 1rem;
-        }
-
-        .history-thumb .delete-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            background: rgba(239, 68, 68, 0.9);
-            border: none;
-            color: white;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .history-item:hover .delete-btn {
-            opacity: 1;
-        }
-
-        .history-info {
-            padding: 0.75rem;
-        }
-
-        .history-info .filename {
-            font-size: 0.8rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .history-info .date {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-muted);
-            grid-column: 1 / -1;
-        }
-
         /* Toast */
         .toast-container {
             position: fixed;
@@ -547,6 +460,32 @@
             }
         }
 
+        /* API Info */
+        .api-section {
+            margin-top: 2rem;
+        }
+
+        .api-card {
+            background: var(--bg-elevated);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border);
+        }
+
+        .api-card h4 {
+            margin-bottom: 0.5rem;
+        }
+
+        .api-card pre {
+            background: var(--bg-dark);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
         @media (max-width: 640px) {
             .container {
                 padding: 1rem;
@@ -556,8 +495,9 @@
                 font-size: 1.75rem;
             }
 
-            .tabs {
+            .settings-row {
                 flex-direction: column;
+                gap: 1rem;
             }
         }
     </style>
@@ -566,335 +506,165 @@
 <body>
     <div class="container">
         <header>
-            <h1>🛋️ Pillow Mockup Generator</h1>
-            <p class="subtitle">Remove backgrounds & create beautiful pillow mockups</p>
+            <h1>🛋️ 3D Pillow Mockup Generator <span class="badge-3d">GLB Export</span></h1>
+            <p class="subtitle">Upload an image → Background removed → 3D Pillow Mockup (GLB file)</p>
             <div class="stats-bar">
                 <div class="stat-item">
                     <div class="stat-value" id="totalImages">-</div>
                     <div class="stat-label">Images</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="originalSize">-</div>
-                    <div class="stat-label">Original</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="processedSize">-</div>
-                    <div class="stat-label">Processed</div>
+                    <div class="stat-value" id="apiStatus">-</div>
+                    <div class="stat-label">API Status</div>
                 </div>
             </div>
         </header>
 
-        <div class="tabs">
-            <button class="tab active" data-tab="upload">📤 Upload</button>
-            <button class="tab" data-tab="gallery">🖼️ Gallery</button>
-            <button class="tab" data-tab="export">📄 Export PDF</button>
-            <button class="tab" data-tab="health">🔧 System</button>
-        </div>
-
-        <!-- Upload Tab -->
-        <div class="tab-content active" id="upload">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">🎨 Create Pillow Mockup</h2>
-                </div>
-
-                <div class="drop-zone" id="dropZone">
-                    <div class="drop-zone-icon">🖼️</div>
-                    <p class="drop-zone-text">
-                        <strong>Click to upload</strong> or drag and drop<br>
-                        PNG, JPG, or WebP (max 10MB)
-                    </p>
-                    <input type="file" class="file-input" id="fileInput" accept="image/png,image/jpeg,image/webp">
-                </div>
-
-                <div style="text-align: center; margin-top: 1rem;">
-                    <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Choose pillow color:</p>
-                    <div class="color-selector" id="colorSelector">
-                        <button class="color-btn active" data-color="white" title="White"></button>
-                        <button class="color-btn" data-color="cream" title="Cream"></button>
-                        <button class="color-btn" data-color="beige" title="Beige"></button>
-                        <button class="color-btn" data-color="gray" title="Gray"></button>
-                        <button class="color-btn" data-color="black" title="Black"></button>
-                        <button class="color-btn" data-color="navy" title="Navy"></button>
-                        <button class="color-btn" data-color="blush" title="Blush Pink"></button>
-                        <button class="color-btn" data-color="sage" title="Sage Green"></button>
-                    </div>
-                </div>
-
-                <div class="status-bar" id="statusBar">
-                    <div class="spinner"></div>
-                    <span id="statusText">Processing...</span>
-                </div>
-
-                <div class="preview-triple" id="previewSection" style="display: none;">
-                    <div class="preview-panel">
-                        <h3>📷 Original</h3>
-                        <div class="preview-image-container">
-                            <img id="originalPreview" src="" alt="Original">
-                        </div>
-                    </div>
-                    <div class="preview-panel">
-                        <h3>✂️ Background Removed</h3>
-                        <div class="preview-image-container">
-                            <img id="processedPreview" src="" alt="Processed">
-                        </div>
-                    </div>
-                    <div class="preview-panel">
-                        <h3>🛋️ Pillow Mockup</h3>
-                        <div class="preview-image-container">
-                            <img id="mockupPreview" src="" alt="Mockup">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="btn-group" id="actionButtons"
-                    style="display: none; justify-content: center; margin-top: 1rem;">
-                    <button class="btn btn-primary" id="downloadProcessed">⬇️ Download PNG</button>
-                    <button class="btn btn-success" id="downloadMockup">⬇️ Download Mockup</button>
-                </div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">🎨 Create 3D Pillow Mockup</h2>
             </div>
-        </div>
 
-        <!-- Gallery Tab -->
-        <div class="tab-content" id="gallery">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">📁 All Images</h2>
-                    <div class="btn-group">
-                        <select id="viewMode" class="btn btn-outline btn-sm" style="padding: 0.5rem;">
-                            <option value="processed">Show Processed</option>
-                            <option value="mockup">Show Mockups</option>
-                        </select>
-                        <button class="btn btn-outline btn-sm" onclick="loadHistory()">🔄 Refresh</button>
-                    </div>
-                </div>
-                <div id="historyGrid" class="history-grid">
-                    <div class="empty-state">
-                        <p>No images yet</p>
-                    </div>
-                </div>
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">🖼️</div>
+                <p class="drop-zone-text">
+                    <strong>Click to upload</strong> or drag and drop<br>
+                    PNG, JPG, or WebP (max 10MB)
+                </p>
+                <input type="file" class="file-input" id="fileInput" accept="image/png,image/jpeg,image/webp">
             </div>
-        </div>
 
-        <!-- Export Tab -->
-        <div class="tab-content" id="export">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">📄 Export to PDF</h2>
-                </div>
-
-                <div class="export-grid">
-                    <div class="export-card">
-                        <h4>📷 Original Images</h4>
-                        <p>All original uploads, one per page</p>
-                        <button class="btn btn-outline btn-sm" onclick="downloadPDF('originals')">⬇️ Download</button>
-                    </div>
-
-                    <div class="export-card">
-                        <h4>✂️ Processed - Simple</h4>
-                        <p>Background removed, one per page</p>
-                        <button class="btn btn-primary btn-sm" onclick="downloadPDF('processed', 'simple')">⬇️
-                            Download</button>
-                    </div>
-
-                    <div class="export-card">
-                        <h4>🧱 Processed - Masonry</h4>
-                        <p>Pinterest-style grid layout</p>
-                        <button class="btn btn-primary btn-sm" onclick="downloadPDF('processed', 'masonry')">⬇️
-                            Download</button>
-                    </div>
-
-                    <div class="export-card">
-                        <h4>🍱 Processed - Bento</h4>
-                        <p>Artistic bento box layout</p>
-                        <button class="btn btn-primary btn-sm" onclick="downloadPDF('processed', 'bento')">⬇️
-                            Download</button>
-                    </div>
-
-                    <div class="export-card">
-                        <h4>🛋️ Mockups - Simple</h4>
-                        <p>Pillow mockups, one per page</p>
-                        <button class="btn btn-success btn-sm" onclick="downloadMockupPDF('simple')">⬇️
-                            Download</button>
-                    </div>
-
-                    <div class="export-card">
-                        <h4>🛋️ Mockups - Grid</h4>
-                        <p>Pillow mockups in masonry layout</p>
-                        <button class="btn btn-success btn-sm" onclick="downloadMockupPDF('masonry')">⬇️
-                            Download</button>
+            <div class="settings-row">
+                <div class="setting-group">
+                    <label>Pillow Thickness</label>
+                    <div class="option-selector" id="thicknessSelector">
+                        <button class="option-btn" data-value="thin">Thin</button>
+                        <button class="option-btn active" data-value="medium">Medium</button>
+                        <button class="option-btn" data-value="thick">Thick</button>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Health Tab -->
-        <div class="tab-content" id="health">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">🔧 System Status</h2>
-                    <button class="btn btn-outline btn-sm" onclick="checkHealth()">🔄 Refresh</button>
-                </div>
-
-                <div class="export-grid" id="healthGrid">
-                    <div class="export-card">
-                        <h4>API Status</h4>
-                        <p id="apiStatus">Checking...</p>
-                    </div>
-                    <div class="export-card">
-                        <h4>Process Workers</h4>
-                        <p id="processWorkers">-</p>
-                    </div>
-                    <div class="export-card">
-                        <h4>Thread Workers</h4>
-                        <p id="threadWorkers">-</p>
+                <div class="setting-group">
+                    <label>Pillow Puffiness</label>
+                    <div class="option-selector" id="puffinessSelector">
+                        <button class="option-btn" data-value="flat">Flat</button>
+                        <button class="option-btn active" data-value="medium">Medium</button>
+                        <button class="option-btn" data-value="puffy">Puffy</button>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">📡 API Endpoints</h2>
-                </div>
+            <div class="status-bar" id="statusBar">
+                <div class="spinner"></div>
+                <span id="statusText">Processing...</span>
+            </div>
 
-                <!-- Image Processing -->
-                <div style="margin-bottom: 1.5rem;">
-                    <h3 style="color: var(--primary-light); margin-bottom: 0.75rem;">🖼️ Image Processing</h3>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: var(--success);">POST</span> /api/remove-background</h4>
-                        <p>Remove background from an image</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl -X POST "http://your-server:8000/api/remove-background" \
-  -F "file=@photo.jpg"</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: var(--success);">POST</span> /api/remove-background-with-mockup</h4>
-                        <p>Remove background + generate pillow mockup in one request</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl -X POST "http://your-server:8000/api/remove-background-with-mockup?color=beige" \
-  -F "file=@photo.jpg"</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: var(--success);">POST</span> /api/mockup</h4>
-                        <p>Generate mockup from uploaded image (optionally remove bg first)</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl -X POST "http://your-server:8000/api/mockup?color=navy&remove_bg=true" \
-  -F "file=@design.png" --output mockup.png</pre>
+            <div class="preview-grid" id="previewSection" style="display: none;">
+                <div class="preview-panel">
+                    <h3>📷 Original Image</h3>
+                    <div class="preview-image-container">
+                        <img id="originalPreview" src="" alt="Original">
                     </div>
                 </div>
-
-                <!-- Get Images -->
-                <div style="margin-bottom: 1.5rem;">
-                    <h3 style="color: var(--primary-light); margin-bottom: 0.75rem;">📥 Retrieve Images</h3>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/images</h4>
-                        <p>List all processed images</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/images"</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/images/{id}/original</h4>
-                        <p>Get original uploaded image</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/images/1/original" --output original.jpg</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/images/{id}/processed</h4>
-                        <p>Get background-removed image (PNG with transparency)</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/images/1/processed" --output processed.png</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/images/{id}/mockup</h4>
-                        <p>Get pillow mockup. Colors: white, cream, beige, gray, black, navy, blush, sage</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/images/1/mockup?color=blush" --output mockup.png</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: var(--error);">DELETE</span> /api/images/{id}</h4>
-                        <p>Delete an image and all associated files</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl -X DELETE "http://your-server:8000/api/images/1"</pre>
+                <div class="preview-panel">
+                    <h3>✂️ Background Removed</h3>
+                    <div class="preview-image-container">
+                        <img id="processedPreview" src="" alt="Processed">
                     </div>
                 </div>
+            </div>
 
-                <!-- PDF Export -->
-                <div style="margin-bottom: 1.5rem;">
-                    <h3 style="color: var(--primary-light); margin-bottom: 0.75rem;">📄 PDF Export</h3>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/pdf/originals</h4>
-                        <p>Download PDF with all original images (one per page)</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/pdf/originals" --output originals.pdf</pre>
+            <div class="preview-panel" id="viewer3dPanel" style="display: none; margin-top: 1rem;">
+                <h3>🛋️ 3D Pillow Mockup (Interactive)</h3>
+                <div class="viewer-3d-container">
+                    <div id="viewer3d"></div>
+                    <div class="loading-3d" id="loading3d">
+                        <div class="spinner-3d"></div>
+                        <p>Loading 3D model...</p>
                     </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/pdf/processed</h4>
-                        <p>Download PDF with processed images. Layouts: simple, masonry, bento</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/pdf/processed?layout=masonry" --output gallery.pdf</pre>
-                    </div>
-
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/pdf/all</h4>
-                        <p>Download combined PDF with all images in masonry layout</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/pdf/all" --output complete.pdf</pre>
+                    <div class="viewer-controls">
+                        <button onclick="resetCamera()">🔄 Reset View</button>
+                        <button onclick="toggleAutoRotate()">🔁 Auto Rotate</button>
                     </div>
                 </div>
+            </div>
 
-                <!-- System -->
-                <div>
-                    <h3 style="color: var(--primary-light); margin-bottom: 0.75rem;">⚙️ System</h3>
+            <div class="btn-group" id="actionButtons" style="display: none; margin-top: 1rem;">
+                <button class="btn btn-primary" id="downloadProcessed">⬇️ Download PNG</button>
+                <button class="btn btn-success" id="downloadGLB">⬇️ Download 3D Model (GLB)</button>
+            </div>
+        </div>
 
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /health</h4>
-                        <p>Health check - returns status and worker counts</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/health"</pre>
-                    </div>
+        <!-- API Documentation -->
+        <div class="card api-section">
+            <div class="card-header">
+                <h2 class="card-title">📡 API Endpoints</h2>
+            </div>
 
-                    <div class="export-card" style="margin-bottom: 0.75rem;">
-                        <h4><span style="color: #818cf8;">GET</span> /api/stats</h4>
-                        <p>Get storage statistics (total images, sizes)</p>
-                        <pre
-                            style="background: var(--bg-dark); padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.75rem;">
-curl "http://your-server:8000/api/stats"</pre>
-                    </div>
-                </div>
+            <div class="api-card">
+                <h4><span style="color: var(--success);">POST</span> /api/quick-mockup</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">⚡ Upload image → Remove background → Generate
+                    3D GLB mockup (all in one request)</p>
+                <pre>curl -X POST "http://your-server.com/api/quick-mockup?thickness=medium&puffiness=medium" \
+  -F "file=@design.png" --output pillow.glb</pre>
+                <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+                    <strong>Parameters:</strong><br>
+                    • thickness: <code>thin</code> | <code>medium</code> | <code>thick</code><br>
+                    • puffiness: <code>flat</code> | <code>medium</code> | <code>puffy</code>
+                </p>
+            </div>
+
+            <div class="api-card">
+                <h4><span style="color: #818cf8;">GET</span> /api/pdf/originals</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all original uploaded images
+                </p>
+                <pre>curl "http://your-server.com/api/pdf/originals" --output originals.pdf</pre>
+                <button onclick="window.open('/api/pdf/originals', '_blank')"
+                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    📥 Test Download
+                </button>
+            </div>
+
+            <div class="api-card">
+                <h4><span style="color: #818cf8;">GET</span> /api/pdf/processed</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all background-removed
+                    images (simple layout)</p>
+                <pre>curl "http://your-server.com/api/pdf/processed" --output processed.pdf</pre>
+                <button onclick="window.open('/api/pdf/processed', '_blank')"
+                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    📥 Test Download
+                </button>
+            </div>
+
+            <div class="api-card">
+                <h4><span style="color: #818cf8;">GET</span> /api/pdf/processed-bento</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all background-removed
+                    images (bento grid layout)</p>
+                <pre>curl "http://your-server.com/api/pdf/processed-bento" --output processed-bento.pdf</pre>
+                <button onclick="window.open('/api/pdf/processed-bento', '_blank')"
+                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    📥 Test Download
+                </button>
             </div>
         </div>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
         // State
-        let selectedColor = 'white';
+        let selectedThickness = 'medium';
+        let selectedPuffiness = 'medium';
         let currentImageId = null;
         let currentProcessedUrl = null;
-        let currentMockupUrl = null;
+        let currentGLBUrl = null;
+
+        // Three.js
+        let scene, camera, renderer, controls, model;
+        let autoRotate = false;
 
         // Elements
         const dropZone = document.getElementById('dropZone');
@@ -902,37 +672,127 @@ curl "http://your-server:8000/api/stats"</pre>
         const statusBar = document.getElementById('statusBar');
         const statusText = document.getElementById('statusText');
         const previewSection = document.getElementById('previewSection');
+        const viewer3dPanel = document.getElementById('viewer3dPanel');
         const actionButtons = document.getElementById('actionButtons');
         const originalPreview = document.getElementById('originalPreview');
         const processedPreview = document.getElementById('processedPreview');
-        const mockupPreview = document.getElementById('mockupPreview');
-        const historyGrid = document.getElementById('historyGrid');
-        const viewMode = document.getElementById('viewMode');
+        const loading3d = document.getElementById('loading3d');
 
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(tab.dataset.tab).classList.add('active');
-                if (tab.dataset.tab === 'gallery') loadHistory();
-                if (tab.dataset.tab === 'health') checkHealth();
+        // Initialize Three.js
+        function init3DViewer() {
+            const container = document.getElementById('viewer3d');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0.5, 2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            backLight.position.set(-5, 5, -5);
+            scene.add(backLight);
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (autoRotate && model) {
+                    model.rotation.y += 0.005;
+                }
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Handle resize
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        function loadGLBModel(url) {
+            loading3d.style.display = 'block';
+
+            // Remove existing model
+            if (model) {
+                scene.remove(model);
+            }
+
+            const loader = new GLTFLoader();
+            loader.load(url,
+                (gltf) => {
+                    model = gltf.scene;
+
+                    // Center and scale the model
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 1.5 / maxDim;
+
+                    model.scale.setScalar(scale);
+                    model.position.sub(center.multiplyScalar(scale));
+
+                    scene.add(model);
+                    loading3d.style.display = 'none';
+                    showToast('3D model loaded!', 'success');
+                },
+                (progress) => {
+                    // Progress
+                },
+                (error) => {
+                    console.error('Error loading GLB:', error);
+                    loading3d.innerHTML = '<p style="color: var(--error);">Failed to load 3D model</p>';
+                    showToast('Failed to load 3D model', 'error');
+                }
+            );
+        }
+
+        window.resetCamera = function () {
+            if (camera && controls) {
+                camera.position.set(0, 0.5, 2);
+                controls.reset();
+            }
+        };
+
+        window.toggleAutoRotate = function () {
+            autoRotate = !autoRotate;
+            showToast(autoRotate ? 'Auto-rotate ON' : 'Auto-rotate OFF', 'success');
+        };
+
+        // Option selectors
+        document.querySelectorAll('#thicknessSelector .option-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#thicknessSelector .option-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedThickness = btn.dataset.value;
             });
         });
 
-        // Color selector
-        document.querySelectorAll('.color-btn').forEach(btn => {
+        document.querySelectorAll('#puffinessSelector .option-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#puffinessSelector .option-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                selectedColor = btn.dataset.color;
-
-                // Update mockup if we have an image
-                if (currentImageId) {
-                    mockupPreview.src = `/api/images/${currentImageId}/mockup?color=${selectedColor}`;
-                    currentMockupUrl = mockupPreview.src;
-                }
+                selectedPuffiness = btn.dataset.value;
             });
         });
 
@@ -961,6 +821,7 @@ curl "http://your-server:8000/api/stats"</pre>
 
             showStatus('loading', '1/3: Uploading image...');
             previewSection.style.display = 'none';
+            viewer3dPanel.style.display = 'none';
             actionButtons.style.display = 'none';
 
             // Show original preview
@@ -972,39 +833,49 @@ curl "http://your-server:8000/api/stats"</pre>
             formData.append('file', file);
 
             try {
-                showStatus('loading', '2/3: Removing background...');
+                showStatus('loading', '2/3: Removing background & generating 3D...');
 
-                // Use the combined endpoint
-                const response = await fetch(`/api/remove-background-with-mockup?color=${selectedColor}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
+                const response = await fetch(
+                    `/api/quick-mockup?thickness=${selectedThickness}&puffiness=${selectedPuffiness}`,
+                    {
+                        method: 'POST',
+                        body: formData
+                    }
+                );
 
-                if (response.ok && result.success) {
-                    showStatus('loading', '3/3: Generating mockup...');
+                if (response.ok) {
+                    showStatus('loading', '3/3: Loading 3D viewer...');
 
-                    currentImageId = result.data.id;
-                    currentProcessedUrl = result.data.processed_url;
-                    currentMockupUrl = result.data.mockup_url;
+                    // Get GLB file directly
+                    const glbBlob = await response.blob();
+                    const glbUrl = URL.createObjectURL(glbBlob);
 
-                    processedPreview.src = result.data.processed_url;
-                    mockupPreview.src = result.data.mockup_url;
+                    currentGLBUrl = glbUrl;
+                    currentImageId = null; // No database storage
+                    currentProcessedUrl = null;
 
-                    // Wait for images to load
-                    await Promise.all([
-                        new Promise(r => { processedPreview.onload = r; }),
-                        new Promise(r => { mockupPreview.onload = r; })
-                    ]);
+                    // Show processed preview (use original for now since no separate processed image)
+                    processedPreview.src = originalPreview.src;
 
-                    showStatus('success', `✓ Complete! Saved ${formatBytes(result.data.processed_size)}`);
+                    // Show panels
                     previewSection.style.display = 'grid';
+                    viewer3dPanel.style.display = 'block';
                     actionButtons.style.display = 'flex';
+
+                    // Initialize 3D viewer if not done
+                    if (!renderer) {
+                        init3DViewer();
+                    }
+
+                    // Load the GLB model
+                    loadGLBModel(currentGLBUrl);
+
+                    showStatus('success', `✓ Complete! GLB size: ${formatBytes(glbBlob.size)}`);
                     loadStats();
-                    showToast('Mockup created!', 'success');
                 } else {
-                    showStatus('error', result.detail || 'Processing failed');
-                    showToast(result.detail || 'Error', 'error');
+                    const errorText = await response.text();
+                    showStatus('error', errorText || 'Processing failed');
+                    showToast(errorText || 'Error', 'error');
                 }
             } catch (error) {
                 showStatus('error', 'Network error');
@@ -1019,6 +890,7 @@ curl "http://your-server:8000/api/stats"</pre>
         }
 
         function formatBytes(bytes) {
+            if (!bytes) return '0 B';
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
@@ -1029,8 +901,17 @@ curl "http://your-server:8000/api/stats"</pre>
             if (currentProcessedUrl) downloadFile(currentProcessedUrl, 'background-removed.png');
         });
 
-        document.getElementById('downloadMockup').addEventListener('click', () => {
-            if (currentMockupUrl) downloadFile(currentMockupUrl, 'pillow-mockup.png');
+        document.getElementById('downloadGLB').addEventListener('click', () => {
+            if (currentGLBUrl) {
+                // For GLB, we need to fetch and save the blob
+                fetch(currentGLBUrl)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        downloadFile(url, 'pillow-mockup.glb');
+                        URL.revokeObjectURL(url);
+                    });
+            }
         });
 
         function downloadFile(url, filename) {
@@ -1042,106 +923,12 @@ curl "http://your-server:8000/api/stats"</pre>
             document.body.removeChild(a);
         }
 
-        // History
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/images');
-                const result = await response.json();
-                const mode = viewMode.value;
-
-                if (result.success && result.images.length > 0) {
-                    historyGrid.innerHTML = result.images.map(img => `
-                        <div class="history-item" onclick="viewImage(${img.id})">
-                            <div class="history-thumb">
-                                <img src="${mode === 'mockup'
-                            ? `/api/images/${img.id}/mockup?color=white`
-                            : `/api/images/${img.id}/processed`}" 
-                                    alt="${img.filename}" loading="lazy">
-                                <span class="badge">#${img.id}</span>
-                                <button class="delete-btn" onclick="event.stopPropagation(); deleteImage(${img.id})">✕</button>
-                            </div>
-                            <div class="history-info">
-                                <div class="filename">${img.filename}</div>
-                                <div class="date">${new Date(img.created_at).toLocaleDateString()}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    historyGrid.innerHTML = '<div class="empty-state"><p>No images yet</p></div>';
-                }
-            } catch (error) {
-                console.error('Error loading history:', error);
-            }
-        }
-
-        viewMode.addEventListener('change', loadHistory);
-
-        function viewImage(id) {
-            currentImageId = id;
-            originalPreview.src = `/api/images/${id}/original`;
-            processedPreview.src = `/api/images/${id}/processed`;
-            mockupPreview.src = `/api/images/${id}/mockup?color=${selectedColor}`;
-            currentProcessedUrl = `/api/images/${id}/processed`;
-            currentMockupUrl = `/api/images/${id}/mockup?color=${selectedColor}`;
-
-            previewSection.style.display = 'grid';
-            actionButtons.style.display = 'flex';
-            statusBar.className = 'status-bar';
-
-            document.querySelectorAll('.tab')[0].click();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        async function deleteImage(id) {
-            if (!confirm('Delete this image?')) return;
-            try {
-                await fetch(`/api/images/${id}`, { method: 'DELETE' });
-                showToast('Deleted', 'success');
-                loadHistory();
-                loadStats();
-            } catch (e) {
-                showToast('Delete failed', 'error');
-            }
-        }
-
-        // PDF downloads
-        async function downloadPDF(type, layout = null) {
-            showToast('Generating PDF...', 'success');
-            let url = `/api/pdf/${type}`;
-            if (layout) url += `?layout=${layout}`;
-
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    const err = await response.json();
-                    showToast(err.detail || 'PDF failed', 'error');
-                    return;
-                }
-                const blob = await response.blob();
-                const downloadUrl = URL.createObjectURL(blob);
-                downloadFile(downloadUrl, `${type}${layout ? '_' + layout : ''}.pdf`);
-                URL.revokeObjectURL(downloadUrl);
-                showToast('PDF downloaded!', 'success');
-            } catch (e) {
-                showToast('PDF failed', 'error');
-            }
-        }
-
-        async function downloadMockupPDF(layout) {
-            showToast('Generating mockup PDF (this may take a moment)...', 'success');
-            // For now, we use the processed PDF since mockup PDF isn't implemented yet
-            // You could implement a /api/pdf/mockups endpoint
-            showToast('Mockup PDF coming soon! Use processed PDF for now.', 'error');
-        }
-
         // Health check
         async function checkHealth() {
             try {
                 const response = await fetch('/health');
                 const result = await response.json();
-                document.getElementById('apiStatus').textContent = result.status === 'healthy' ? '✓ Healthy' : 'Unhealthy';
-                document.getElementById('processWorkers').textContent = result.workers?.process_workers || '-';
-                document.getElementById('threadWorkers').textContent = result.workers?.thread_workers || '-';
+                document.getElementById('apiStatus').textContent = result.status === 'healthy' ? '✓ Online' : 'Offline';
             } catch (e) {
                 document.getElementById('apiStatus').textContent = '✕ Offline';
             }
@@ -1153,8 +940,6 @@ curl "http://your-server:8000/api/stats"</pre>
                 const response = await fetch('/api/stats');
                 const result = await response.json();
                 document.getElementById('totalImages').textContent = result.total_images;
-                document.getElementById('originalSize').textContent = result.total_original_size_mb + ' MB';
-                document.getElementById('processedSize').textContent = result.total_processed_size_mb + ' MB';
             } catch (e) { }
         }
 
@@ -1171,7 +956,6 @@ curl "http://your-server:8000/api/stats"</pre>
         }
 
         // Init
-        loadHistory();
         loadStats();
         checkHealth();
     </script>

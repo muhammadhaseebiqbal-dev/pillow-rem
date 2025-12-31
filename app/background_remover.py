@@ -6,17 +6,16 @@ from rembg import remove, new_session
 from PIL import Image
 import io
 
-# Create session with the full U2-Net model for best accuracy
-# Available models:
-# - u2net: Full model, best quality (~170MB)
-# - u2netp: Lightweight, faster but less accurate
-# - u2net_human_seg: Optimized for human subjects
-# - silueta: Good for general objects
-# - isnet-general-use: Good general purpose model
-# - isnet-anime: For anime/cartoon images
+# Create session with BiRefNet-general model for good balance of speed and accuracy
+# Available models (speed vs accuracy tradeoff):
+# - birefnet-general: Good accuracy, moderate size (~250MB), RECOMMENDED
+# - birefnet-general-lite: Faster, smaller, slightly less accurate
+# - isnet-general-use: Fast, good for products and objects
+# - birefnet-massive: Best accuracy but very slow (973MB)
+# - u2net: Legacy model, smaller but less accurate
 
-# Use the full U2-Net model for best accuracy
-SESSION = new_session("u2net")
+# Use BiRefNet-general for good balance of speed and accuracy
+SESSION = new_session("birefnet-general")
 
 
 def remove_background(input_image_bytes: bytes, model: str = None) -> bytes:
@@ -39,20 +38,14 @@ def remove_background(input_image_bytes: bytes, model: str = None) -> bytes:
         output_bytes = remove(
             input_image_bytes,
             session=session,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=10
+            alpha_matting=False  # Disabled to prevent division by zero errors
         )
     else:
-        # Use default session with alpha matting for better edges
+        # Use default session without alpha matting (more stable)
         output_bytes = remove(
             input_image_bytes,
             session=SESSION,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=10
+            alpha_matting=False  # Disabled to prevent division by zero errors
         )
     
     return output_bytes

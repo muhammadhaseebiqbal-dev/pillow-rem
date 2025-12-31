@@ -8,3 +8,8 @@ aiofiles>=23.2.1
 reportlab>=4.0.0
 gunicorn>=21.0.0
 numpy>=1.24.0
+trimesh>=4.0.0
+pygltflib>=1.16.0
+scipy>=1.11.0
+opencv-python-headless>=4.8.0
+
