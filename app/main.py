@@ -18,7 +18,7 @@ from functools import partial
 from .database import get_db, init_db, ImageRecord
 from .background_remover import remove_background, get_image_info
 from .pdf_generator import create_simple_pdf, create_masonry_pdf, create_bento_pdf
-from .mockup_generator import create_pillow_mockup, create_colored_pillow_mockup
+from .mockup_generator import create_pillow_mockup, create_colored_pillow_mockup, create_masonry_mockup
 from .pillow_3d_generator import create_3d_pillow_mockup, create_simple_pillow_glb, create_custom_pillow_glb
 
 # Global executor for CPU-bound tasks (background removal)
@@ -64,7 +64,12 @@ app = FastAPI(
 # CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://cattucino.store",
+        "http://72.62.76.64",
+        "http://72.62.76.64:8000",
+        "*"  # Fallback for other origins
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -289,6 +294,78 @@ async def quick_mockup(
             media_type="model/gltf-binary",
             headers={
                 "Content-Disposition": f"attachment; filename=pillow_mockup.glb"
+            }
+        )
+        
+    except ValueError as e:
+        print(f"[ERROR] ValueError: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"[ERROR] Exception: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+
+
+@app.post("/api/masonry-mockup")
+async def masonry_mockup(
+    file: UploadFile = File(...),
+    tiles: int = 6
+):
+    """
+    Optimized endpoint: Upload image → Remove background → Generate masonry layout mockup.
+    Returns a grid-style PNG mockup showing the design in multiple tiles.
+    
+    - **file**: Image file (JPEG, PNG, WebP)
+    - **tiles**: Number of tiles in grid (4, 6, or 9) - default 6
+    """
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    # Validate tiles parameter
+    if tiles not in [4, 6, 9]:
+        raise HTTPException(
+            status_code=400,
+            detail="tiles parameter must be 4, 6, or 9"
+        )
+    
+    try:
+        # Read file content once
+        file_content = await file.read()
+        
+        # Step 1: Remove background
+        loop = asyncio.get_event_loop()
+        print(f"[DEBUG] Starting background removal for masonry mockup")
+        bg_removed_bytes = await loop.run_in_executor(
+            thread_executor,
+            remove_background,
+            file_content
+        )
+        print(f"[DEBUG] Background removed, size: {len(bg_removed_bytes)} bytes")
+        
+        # Step 2: Generate masonry mockup
+        print(f"[DEBUG] Starting masonry mockup generation with {tiles} tiles")
+        mockup_bytes = await loop.run_in_executor(
+            thread_executor,
+            create_masonry_mockup,
+            bg_removed_bytes,
+            tiles
+        )
+        print(f"[DEBUG] Masonry mockup generated, size: {len(mockup_bytes)} bytes")
+        
+        # Return PNG file directly
+        return Response(
+            content=mockup_bytes,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": f"attachment; filename=masonry_mockup_{tiles}tiles.png"
             }
         )
         

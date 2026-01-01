@@ -11,14 +11,14 @@ import cv2
 
 def create_3d_pillow_mockup(
     design_bytes: bytes,
-    pillow_thickness: float = 0.15,
-    pillow_puffiness: float = 0.08,
-    border_width: float = 0.06,
+    pillow_thickness: float = 0.08,
+    pillow_puffiness: float = 0.0,
+    border_width: float = 0.03,
     scale: float = 1.0
 ) -> bytes:
     """
-    Create a 3D pillow mesh with visible white border seam.
-    Both front and back have the image, side seam is white and bulges OUTWARD.
+    Create a 3D standee/cutout style mockup with white border.
+    Flat design that follows the image contour with slight depth.
     """
     # Load the design image
     design = Image.open(io.BytesIO(design_bytes)).convert("RGBA")
@@ -51,19 +51,14 @@ def create_3d_pillow_mockup(
     n_points = len(contour)
     center = np.mean(contour, axis=0)
     
-    # Calculate distances for puffiness
-    distances = np.linalg.norm(contour - center, axis=1)
-    max_dist = np.max(distances) * 1.1
+    # Prepare texture - no padding for cutout style
+    texture_image = prepare_texture_cutout(design)
     
-    # Prepare texture (now includes white padding at bottom)
-    texture_image = prepare_texture(design)
-    
-    # Calculate UV scale factor to map only to the original image portion (not the padding)
-    # Original image is at top, padding is at bottom
-    texture_height_scale = design.height / texture_image.height
+    # Prepare texture - no padding for cutout style
+    texture_image = prepare_texture_cutout(design)
     
     # ============ CREATE SINGLE UNIFIED MESH ============
-    # Combine front, back, and seam into ONE mesh with proper UV mapping
+    # Flat cutout style with white border edges
     
     all_vertices = []
     all_faces = []
@@ -72,23 +67,21 @@ def create_3d_pillow_mockup(
     
     # Prepare UV bounds
     min_x, max_x = contour[:, 0].min(), contour[:, 0].max()
-    min_y, max_y = contour[:, 1].min(), contour[:, 1].max()  # Fixed: was using [:, 0] for min_y
+    min_y, max_y = contour[:, 1].min(), contour[:, 1].max()
     range_x = max_x - min_x if max_x != min_x else 1
     range_y = max_y - min_y if max_y != min_y else 1
     
-    # ============ 1. ADD FRONT FACE ============
+    # ============ 1. ADD FRONT FACE (FLAT) ============
     for (x, y) in contour:
-        dist = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-        puff = pillow_puffiness * max(0, 1.0 - (dist / max_dist) ** 1.5)
-        all_vertices.append([x, y, puff])
-        # Normal UV mapping for front - SCALED to avoid padding
+        all_vertices.append([x, y, 0])
+        # Direct UV mapping
         u = (x - min_x) / range_x
-        v = ((y - min_y) / range_y) * texture_height_scale  # Scale V to avoid padding
+        v = (y - min_y) / range_y
         all_uvs.append([u, v])
     
     front_center_idx = len(all_vertices)
-    all_vertices.append([center[0], center[1], pillow_puffiness])
-    all_uvs.append([0.5, 0.5 * texture_height_scale])
+    all_vertices.append([center[0], center[1], 0])
+    all_uvs.append([0.5, 0.5])
     
     for i in range(n_points):
         next_i = (i + 1) % n_points
@@ -96,22 +89,17 @@ def create_3d_pillow_mockup(
     
     vertex_offset = len(all_vertices)
     
-    # ============ 2. ADD BACK FACE ============
-    back_puffiness = pillow_puffiness * 0.5
+    # ============ 2. ADD BACK FACE (FLAT) ============
     for (x, y) in contour:
-        dist = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-        puff = back_puffiness * max(0, 1.0 - (dist / max_dist) ** 1.5)
-        all_vertices.append([x, y, -(pillow_thickness - puff)])
-        # Use STANDARD UV mapping so texture aligns with the asymmetry of the back face
-        # This results in a mirrored image, which fits the mirrored contour perfectly
-        # SCALED to avoid padding
+        all_vertices.append([x, y, -pillow_thickness])
+        # Same UV mapping for back
         u = (x - min_x) / range_x
-        v = ((y - min_y) / range_y) * texture_height_scale  # Scale V to avoid padding
+        v = (y - min_y) / range_y
         all_uvs.append([u, v])
     
     back_center_idx = len(all_vertices)
-    all_vertices.append([center[0], center[1], -(pillow_thickness - back_puffiness)])
-    all_uvs.append([0.5, 0.5 * texture_height_scale])
+    all_vertices.append([center[0], center[1], -pillow_thickness])
+    all_uvs.append([0.5, 0.5])
     
     for i in range(n_points):
         next_i = (i + 1) % n_points
@@ -119,20 +107,17 @@ def create_3d_pillow_mockup(
     
     vertex_offset = len(all_vertices)
     
-    # ============ 3. ADD SEAM ============
-    seam_subdivisions = 8
+    # ============ 3. ADD WHITE BORDER EDGE ============
+    # Simple edge with fewer subdivisions for speed
+    seam_subdivisions = 3
     
     for i in range(n_points):
         x, y = contour[i]
         
-        dist = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-        front_puff = pillow_puffiness * max(0, 1.0 - (dist / max_dist) ** 1.5)
-        back_puff = back_puffiness * max(0, 1.0 - (dist / max_dist) ** 1.5)
+        z_front = 0
+        z_back = -pillow_thickness
         
-        z_front = front_puff
-        z_back = -(pillow_thickness - back_puff)
-        
-        # Calculate outward normal
+        # Calculate outward normal for white border
         to_point_x = x - center[0]
         to_point_y = y - center[1]
         length = np.sqrt(to_point_x**2 + to_point_y**2)
@@ -145,16 +130,17 @@ def create_3d_pillow_mockup(
         for j in range(seam_subdivisions + 1):
             t = j / seam_subdivisions
             z = z_front + (z_back - z_front) * t
-            bulge = border_width * np.sin(t * np.pi)
+            # Slight outward bulge for white border visibility
+            bulge = border_width * np.sin(t * np.pi) * 0.5
             
             sx = x + nx * bulge
             sy = y + ny * bulge
             
             all_vertices.append([sx, sy, z])
-            # Point to white padding region (use v slightly above scaled image area)
-            all_uvs.append([0.5, 0.99])  # Just below padding boundary for pure white
+            # White color (point to white area of texture)
+            all_uvs.append([0.99, 0.99])
     
-    # Create seam faces
+    # Create border edge faces
     verts_per_column = seam_subdivisions + 1
     for i in range(n_points):
         next_i = (i + 1) % n_points
@@ -174,9 +160,10 @@ def create_3d_pillow_mockup(
     combined_mesh = trimesh.Trimesh(
         vertices=np.array(all_vertices),
         faces=np.array(all_faces),
-        process=False  # CRITICAL: Prevent vertex merging so UVs match vertices
+        process=False,  # CRITICAL: Prevent vertex merging so UVs match vertices
+        validate=False  # Skip validation for faster export
     )
-    combined_mesh.fix_normals()
+    # Skip fix_normals for speed - normals are generally correct
     
     # Apply texture with pre-computed UVs
     uv_array = np.array(all_uvs)
@@ -197,15 +184,14 @@ def create_3d_pillow_mockup(
     # ============ EXPORT TO GLB ============
     combined_mesh.apply_scale(scale)
     
-    glb_bytes = combined_mesh.export(file_type='glb')
+    glb_bytes = combined_mesh.export(file_type='glb', include_normals=False)  # Skip normal export for speed
     return bytes(glb_bytes) if not isinstance(glb_bytes, bytes) else glb_bytes
 
 
 def extract_contour(alpha_np: np.ndarray) -> np.ndarray:
-    """Extract the main contour from an alpha mask."""
+    """Extract the main contour from an alpha mask - optimized for speed."""
     _, binary = cv2.threshold(alpha_np, 127, 255, cv2.THRESH_BINARY)
-    binary = cv2.GaussianBlur(binary, (5, 5), 0)
-    _, binary = cv2.threshold(binary, 127, 255, cv2.THRESH_BINARY)
+    binary = cv2.GaussianBlur(binary, (3, 3), 0)  # Smaller blur kernel
     
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
@@ -213,7 +199,8 @@ def extract_contour(alpha_np: np.ndarray) -> np.ndarray:
         return None
     
     largest_contour = max(contours, key=cv2.contourArea)
-    epsilon = 0.002 * cv2.arcLength(largest_contour, True)
+    # More aggressive simplification for fewer vertices (4x larger epsilon)
+    epsilon = 0.008 * cv2.arcLength(largest_contour, True)
     simplified = cv2.approxPolyDP(largest_contour, epsilon, True)
     
     points = simplified.reshape(-1, 2)
@@ -229,7 +216,7 @@ def normalize_contour(points: np.ndarray, width: int, height: int, aspect: float
 
 
 def prepare_texture(design: Image.Image) -> Image.Image:
-    """Prepare the texture image with white padding for seam."""
+    """Prepare the texture image with white padding for seam and borders - optimized."""
     # Convert to RGB with white background
     if design.mode == 'RGBA':
         background = Image.new('RGB', design.size, (255, 255, 255))
@@ -238,12 +225,54 @@ def prepare_texture(design: Image.Image) -> Image.Image:
     else:
         rgb_image = design.convert('RGB')
     
-    # Add white padding at bottom (10 pixels) for seam to use
-    width, height = rgb_image.size
-    padded = Image.new('RGB', (width, height + 10), (255, 255, 255))
-    padded.paste(rgb_image, (0, 0))
+    # Optimize texture size - downsample if too large
+    max_dimension = 1024
+    if max(rgb_image.size) > max_dimension:
+        ratio = max_dimension / max(rgb_image.size)
+        new_size = (int(rgb_image.width * ratio), int(rgb_image.height * ratio))
+        rgb_image = rgb_image.resize(new_size, Image.Resampling.LANCZOS)
     
-    return padded
+    # Add 50px white padding on all sides for pillow border
+    padding = 50
+    width, height = rgb_image.size
+    new_width = width + (padding * 2)
+    new_height = height + (padding * 2)
+    
+    # Create white canvas and paste image in center
+    padded = Image.new('RGB', (new_width, new_height), (255, 255, 255))
+    padded.paste(rgb_image, (padding, padding))
+    
+    # Add extra white padding at bottom (10 pixels) for seam to use
+    final_padded = Image.new('RGB', (new_width, new_height + 10), (255, 255, 255))
+    final_padded.paste(padded, (0, 0))
+    
+    return final_padded
+
+
+def prepare_texture_cutout(design: Image.Image) -> Image.Image:
+    """Prepare texture for cutout/standee style - optimized and clean."""
+    # Convert to RGB with white background
+    if design.mode == 'RGBA':
+        background = Image.new('RGB', design.size, (255, 255, 255))
+        background.paste(design, mask=design.split()[3])
+        rgb_image = background
+    else:
+        rgb_image = design.convert('RGB')
+    
+    # Optimize texture size - downsample if too large
+    max_dimension = 1024
+    if max(rgb_image.size) > max_dimension:
+        ratio = max_dimension / max(rgb_image.size)
+        new_size = (int(rgb_image.width * ratio), int(rgb_image.height * ratio))
+        rgb_image = rgb_image.resize(new_size, Image.Resampling.LANCZOS)
+    
+    # Add small white border for edge rendering
+    border = 5
+    width, height = rgb_image.size
+    bordered = Image.new('RGB', (width + border * 2, height + border * 2), (255, 255, 255))
+    bordered.paste(rgb_image, (border, border))
+    
+    return bordered
 
 
 def apply_texture(mesh: trimesh.Trimesh, texture_image: Image.Image, contour: np.ndarray, mirror: bool = False):
@@ -307,12 +336,12 @@ def apply_white_color(mesh: trimesh.Trimesh):
 
 
 def create_simple_pillow_glb(design_bytes: bytes) -> bytes:
-    """Simple wrapper with default settings."""
+    """Simple wrapper - creates flat cutout/standee style mockup."""
     return create_3d_pillow_mockup(
         design_bytes,
-        pillow_thickness=0.12,
-        pillow_puffiness=0.06,
-        border_width=0.05,
+        pillow_thickness=0.06,
+        pillow_puffiness=0.0,
+        border_width=0.02,
         scale=1.0
     )
 
@@ -322,33 +351,26 @@ def create_custom_pillow_glb(
     thickness: str = "medium",
     puffiness: str = "medium"
 ) -> bytes:
-    """Create pillow with preset options."""
+    """Create cutout/standee with thickness options (puffiness ignored for flat style)."""
     thickness_map = {
-        "thin": 0.08,
-        "medium": 0.12,
-        "thick": 0.18
-    }
-    
-    puffiness_map = {
-        "flat": 0.03,
+        "thin": 0.04,
         "medium": 0.06,
-        "puffy": 0.12
+        "thick": 0.10
     }
     
     border_map = {
-        "thin": 0.04,
-        "medium": 0.06,
-        "thick": 0.08
+        "thin": 0.015,
+        "medium": 0.02,
+        "thick": 0.03
     }
     
-    t = thickness_map.get(thickness, 0.12)
-    p = puffiness_map.get(puffiness, 0.06)
-    b = border_map.get(thickness, 0.06)
+    t = thickness_map.get(thickness, 0.06)
+    b = border_map.get(thickness, 0.02)
     
     return create_3d_pillow_mockup(
         design_bytes,
         pillow_thickness=t,
-        pillow_puffiness=p,
+        pillow_puffiness=0.0,  # Always flat for cutout style
         border_width=b,
         scale=1.0
     )

@@ -363,3 +363,86 @@ def create_colored_pillow_mockup(design_bytes: bytes, color: str = "gray") -> by
 def create_square_pillow_mockup(design_bytes: bytes) -> bytes:
     """Standard square pillow mockup."""
     return create_colored_pillow_mockup(design_bytes, "white")
+
+
+def create_masonry_mockup(design_bytes: bytes, tiles: int = 6) -> bytes:
+    """
+    Create a masonry/grid style mockup showing the design in multiple tiles.
+    
+    Args:
+        design_bytes: PNG image bytes (with transparent background)
+        tiles: Number of tiles to show (4, 6, or 9)
+        
+    Returns:
+        bytes: PNG image of masonry layout mockup
+    """
+    # Load the design image
+    design = Image.open(io.BytesIO(design_bytes)).convert("RGBA")
+    
+    # Get the alpha channel and crop to content
+    alpha = design.split()[3]
+    bbox = alpha.getbbox()
+    if bbox:
+        design = design.crop(bbox)
+    
+    # Convert to RGB with white background for display
+    if design.mode == 'RGBA':
+        background = Image.new('RGB', design.size, (255, 255, 255))
+        background.paste(design, mask=design.split()[3])
+        design = background
+    
+    # Determine grid layout
+    if tiles == 4:
+        cols, rows = 2, 2
+    elif tiles == 9:
+        cols, rows = 3, 3
+    else:  # default 6
+        cols, rows = 3, 2
+    
+    # Calculate tile sizes
+    tile_gap = 20
+    tile_padding = 30
+    max_tile_size = 400
+    
+    # Scale design to fit tile
+    design_aspect = design.width / design.height
+    if design_aspect > 1:  # Wider
+        tile_w = min(max_tile_size, design.width)
+        tile_h = int(tile_w / design_aspect)
+    else:  # Taller or square
+        tile_h = min(max_tile_size, design.height)
+        tile_w = int(tile_h * design_aspect)
+    
+    design_resized = design.resize((tile_w, tile_h), Image.Resampling.LANCZOS)
+    
+    # Calculate canvas size
+    canvas_w = cols * tile_w + (cols - 1) * tile_gap + 2 * tile_padding
+    canvas_h = rows * tile_h + (rows - 1) * tile_gap + 2 * tile_padding
+    
+    # Create canvas with white background
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+    
+    # Place tiles in grid
+    for row in range(rows):
+        for col in range(cols):
+            x = tile_padding + col * (tile_w + tile_gap)
+            y = tile_padding + row * (tile_h + tile_gap)
+            
+            # Add subtle shadow
+            shadow_offset = 8
+            shadow = Image.new("RGB", (tile_w, tile_h), (200, 200, 200))
+            canvas.paste(shadow, (x + shadow_offset, y + shadow_offset))
+            
+            # Paste the design tile
+            canvas.paste(design_resized, (x, y))
+    
+    # Add subtle overall shadow/depth
+    enhancer = ImageEnhance.Contrast(canvas)
+    canvas = enhancer.enhance(1.1)
+    
+    # Convert to bytes
+    output = io.BytesIO()
+    canvas.save(output, format="PNG", quality=95)
+    output.seek(0)
+    
+    return output.getvalue()
