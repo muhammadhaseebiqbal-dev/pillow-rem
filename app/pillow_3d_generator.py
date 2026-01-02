@@ -47,15 +47,14 @@ def create_3d_pillow_mockup(
         raise ValueError("Could not extract valid contour from image")
     
     # Normalize contour
+    # Store original pixels for exact UV mapping before normalization
+    contour_pixels = contour_points.copy()
     contour = normalize_contour(contour_points, width, height, aspect)
     n_points = len(contour)
     center = np.mean(contour, axis=0)
     
-    # Prepare texture - no padding for cutout style
-    texture_image = prepare_texture_cutout(design)
-    
-    # Prepare texture - no padding for cutout style
-    texture_image = prepare_texture_cutout(design)
+    # Prepare texture - exact image with white strip at bottom for seam
+    texture_image, height_ratio = prepare_texture_with_strip(design)
     
     # ============ CREATE SINGLE UNIFIED MESH ============
     # Flat cutout style with white border edges
@@ -65,23 +64,27 @@ def create_3d_pillow_mockup(
     all_uvs = []
     vertex_offset = 0
     
-    # Prepare UV bounds
-    min_x, max_x = contour[:, 0].min(), contour[:, 0].max()
-    min_y, max_y = contour[:, 1].min(), contour[:, 1].max()
-    range_x = max_x - min_x if max_x != min_x else 1
-    range_y = max_y - min_y if max_y != min_y else 1
+    # UV Mapping Helper Logic
+    def get_uv_from_pixels(px, py):
+        u = max(0.0, min(1.0, px / width))
+        v_raw = py / height
+        # Invert V: 1.0 is Top of image, (1.0 - height_ratio) is Bottom of image
+        v = 1.0 - (v_raw * height_ratio)
+        return [u, v]
     
     # ============ 1. ADD FRONT FACE (FLAT) ============
-    for (x, y) in contour:
+    for i in range(n_points):
+        x, y = contour[i]
         all_vertices.append([x, y, 0])
-        # Direct UV mapping
-        u = (x - min_x) / range_x
-        v = (y - min_y) / range_y
-        all_uvs.append([u, v])
+        
+        # UV coordinates (from original pixel position)
+        px, py = contour_pixels[i]
+        all_uvs.append(get_uv_from_pixels(px, py))
     
     front_center_idx = len(all_vertices)
     all_vertices.append([center[0], center[1], 0])
-    all_uvs.append([0.5, 0.5])
+    # Center pixel approx
+    all_uvs.append([0.5, 1.0 - (0.5 * height_ratio)])
     
     for i in range(n_points):
         next_i = (i + 1) % n_points
@@ -90,16 +93,17 @@ def create_3d_pillow_mockup(
     vertex_offset = len(all_vertices)
     
     # ============ 2. ADD BACK FACE (FLAT) ============
-    for (x, y) in contour:
+    for i in range(n_points):
+        x, y = contour[i]
         all_vertices.append([x, y, -pillow_thickness])
-        # Same UV mapping for back
-        u = (x - min_x) / range_x
-        v = (y - min_y) / range_y
-        all_uvs.append([u, v])
+        
+        # UVs (Match front exactly)
+        px, py = contour_pixels[i]
+        all_uvs.append(get_uv_from_pixels(px, py))
     
     back_center_idx = len(all_vertices)
     all_vertices.append([center[0], center[1], -pillow_thickness])
-    all_uvs.append([0.5, 0.5])
+    all_uvs.append([0.5, 1.0 - (0.5 * height_ratio)])
     
     for i in range(n_points):
         next_i = (i + 1) % n_points
@@ -108,7 +112,6 @@ def create_3d_pillow_mockup(
     vertex_offset = len(all_vertices)
     
     # ============ 3. ADD WHITE BORDER EDGE ============
-    # Simple edge with fewer subdivisions for speed
     seam_subdivisions = 3
     
     for i in range(n_points):
@@ -137,8 +140,8 @@ def create_3d_pillow_mockup(
             sy = y + ny * bulge
             
             all_vertices.append([sx, sy, z])
-            # White color (point to white area of texture)
-            all_uvs.append([0.99, 0.99])
+            # White seam UV area
+            all_uvs.append([0.5, 0.01])
     
     # Create border edge faces
     verts_per_column = seam_subdivisions + 1
@@ -155,69 +158,14 @@ def create_3d_pillow_mockup(
             
             all_faces.append([v0, v1, v2])
             all_faces.append([v0, v2, v3])
-    
-    # ============ CREATE SINGLE MESH ============
-    combined_mesh = trimesh.Trimesh(
-        vertices=np.array(all_vertices),
-        faces=np.array(all_faces),
-        process=False,  # CRITICAL: Prevent vertex merging so UVs match vertices
-        validate=False  # Skip validation for faster export
-    )
-    # Skip fix_normals for speed - normals are generally correct
-    
-    # Apply texture with pre-computed UVs
-    uv_array = np.array(all_uvs)
-    
-    material = trimesh.visual.material.PBRMaterial(
-        baseColorFactor=[1.0, 1.0, 1.0, 1.0],
-        metallicFactor=0.0,
-        roughnessFactor=0.6,
-        baseColorTexture=texture_image
-    )
-    
-    combined_mesh.visual = trimesh.visual.TextureVisuals(
-        uv=uv_array,
-        material=material,
-        image=texture_image
-    )
-    
-    # ============ EXPORT TO GLB ============
-    combined_mesh.apply_scale(scale)
-    
-    glb_bytes = combined_mesh.export(file_type='glb', include_normals=False)  # Skip normal export for speed
-    return bytes(glb_bytes) if not isinstance(glb_bytes, bytes) else glb_bytes
 
+# ... (helper code below)
 
-def extract_contour(alpha_np: np.ndarray) -> np.ndarray:
-    """Extract the main contour from an alpha mask - optimized for speed."""
-    _, binary = cv2.threshold(alpha_np, 127, 255, cv2.THRESH_BINARY)
-    binary = cv2.GaussianBlur(binary, (3, 3), 0)  # Smaller blur kernel
-    
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if not contours:
-        return None
-    
-    largest_contour = max(contours, key=cv2.contourArea)
-    # More aggressive simplification for fewer vertices (4x larger epsilon)
-    epsilon = 0.008 * cv2.arcLength(largest_contour, True)
-    simplified = cv2.approxPolyDP(largest_contour, epsilon, True)
-    
-    points = simplified.reshape(-1, 2)
-    return points if len(points) >= 3 else None
-
-
-def normalize_contour(points: np.ndarray, width: int, height: int, aspect: float) -> np.ndarray:
-    """Normalize contour points to centered coordinate space."""
-    normalized = points.astype(float)
-    normalized[:, 0] = (normalized[:, 0] / width - 0.5) * aspect
-    normalized[:, 1] = -(normalized[:, 1] / height - 0.5)
-    return normalized
-
-
-def prepare_texture(design: Image.Image) -> Image.Image:
-    """Prepare the texture image with white padding for seam and borders - optimized."""
-    # Convert to RGB with white background
+def prepare_texture_with_strip(design: Image.Image) -> tuple[Image.Image, float]:
+    """
+    Prepare texture: Exact design image + 10px white strip at bottom.
+    Returns: (New Image, Height Ratio of original image vs total height)
+    """
     if design.mode == 'RGBA':
         background = Image.new('RGB', design.size, (255, 255, 255))
         background.paste(design, mask=design.split()[3])
@@ -225,29 +173,23 @@ def prepare_texture(design: Image.Image) -> Image.Image:
     else:
         rgb_image = design.convert('RGB')
     
-    # Optimize texture size - downsample if too large
-    max_dimension = 1024
-    if max(rgb_image.size) > max_dimension:
-        ratio = max_dimension / max(rgb_image.size)
+    max_dim = 1024
+    if max(rgb_image.size) > max_dim:
+        ratio = max_dim / max(rgb_image.size)
         new_size = (int(rgb_image.width * ratio), int(rgb_image.height * ratio))
         rgb_image = rgb_image.resize(new_size, Image.Resampling.LANCZOS)
     
-    # Add 50px white padding on all sides for pillow border
-    padding = 50
-    width, height = rgb_image.size
-    new_width = width + (padding * 2)
-    new_height = height + (padding * 2)
+    w, h = rgb_image.size
     
-    # Create white canvas and paste image in center
-    padded = Image.new('RGB', (new_width, new_height), (255, 255, 255))
-    padded.paste(rgb_image, (padding, padding))
+    strip_height = 8
+    total_h = h + strip_height
     
-    # Add extra white padding at bottom (10 pixels) for seam to use
-    final_padded = Image.new('RGB', (new_width, new_height + 10), (255, 255, 255))
-    final_padded.paste(padded, (0, 0))
+    final_img = Image.new('RGB', (w, total_h), (255, 255, 255))
+    final_img.paste(rgb_image, (0, 0))
+    # Bottom strip is already white
     
-    return final_padded
-
+    height_ratio = h / total_h
+    return final_img, height_ratio
 
 def prepare_texture_cutout(design: Image.Image) -> Image.Image:
     """Prepare texture for cutout/standee style - optimized and clean."""
