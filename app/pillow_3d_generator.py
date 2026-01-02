@@ -203,7 +203,7 @@ def prepare_texture_with_strip(design: Image.Image) -> tuple[Image.Image, float]
     else:
         rgb_image = design.convert('RGB')
     
-    max_dim = 1024
+    max_dim = 2048
     if max(rgb_image.size) > max_dim:
         ratio = max_dim / max(rgb_image.size)
         new_size = (int(rgb_image.width * ratio), int(rgb_image.height * ratio))
@@ -359,8 +359,8 @@ def extract_contour(alpha_np: np.ndarray) -> np.ndarray:
         return None
     
     largest_contour = max(contours, key=cv2.contourArea)
-    # More aggressive simplification for fewer vertices (4x larger epsilon)
-    epsilon = 0.008 * cv2.arcLength(largest_contour, True)
+    # Use much finer detail to prevents "cutting" the shape corners
+    epsilon = 0.001 * cv2.arcLength(largest_contour, True)
     simplified = cv2.approxPolyDP(largest_contour, epsilon, True)
     
     points = simplified.reshape(-1, 2)

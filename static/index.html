@@ -438,8 +438,8 @@
                             <label class="setting-label">Thickness</label>
                             <div class="btn-group" id="thicknessSelector">
                                 <button class="option-btn" data-value="thin">Thin</button>
-                                <button class="option-btn active" data-value="medium">Medium</button>
-                                <button class="option-btn" data-value="thick">Thick</button>
+                                <button class="option-btn" data-value="medium">Medium</button>
+                                <button class="option-btn active" data-value="thick">Thick</button>
                             </div>
                         </div>
 
@@ -447,8 +447,8 @@
                             <label class="setting-label">Puffiness</label>
                             <div class="btn-group" id="puffinessSelector">
                                 <button class="option-btn" data-value="flat">Flat</button>
-                                <button class="option-btn active" data-value="medium">Medium</button>
-                                <button class="option-btn" data-value="puffy">Puffy</button>
+                                <button class="option-btn" data-value="medium">Medium</button>
+                                <button class="option-btn active" data-value="puffy">Puffy</button>
                             </div>
                         </div>
 
@@ -533,8 +533,7 @@
         }
 
         // State
-        let state = { thickness: 'medium', puffiness: 'medium', file: null };
-
+        let state = { thickness: 'thick', puffiness: 'puffy', file: null };
         // Selectors
         const setupSelector = (id, key) => {
             const container = document.getElementById(id);
