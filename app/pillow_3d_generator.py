@@ -316,3 +316,30 @@ def create_custom_pillow_glb(
         border_width=b,
         scale=1.0
     )
+
+
+def extract_contour(alpha_np: np.ndarray) -> np.ndarray:
+    """Extract the main contour from an alpha mask - optimized for speed."""
+    _, binary = cv2.threshold(alpha_np, 127, 255, cv2.THRESH_BINARY)
+    binary = cv2.GaussianBlur(binary, (3, 3), 0)  # Smaller blur kernel
+    
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if not contours:
+        return None
+    
+    largest_contour = max(contours, key=cv2.contourArea)
+    # More aggressive simplification for fewer vertices (4x larger epsilon)
+    epsilon = 0.008 * cv2.arcLength(largest_contour, True)
+    simplified = cv2.approxPolyDP(largest_contour, epsilon, True)
+    
+    points = simplified.reshape(-1, 2)
+    return points if len(points) >= 3 else None
+
+
+def normalize_contour(points: np.ndarray, width: int, height: int, aspect: float) -> np.ndarray:
+    """Normalize contour points to centered coordinate space."""
+    normalized = points.astype(float)
+    normalized[:, 0] = (normalized[:, 0] / width - 0.5) * aspect
+    normalized[:, 1] = -(normalized[:, 1] / height - 0.5)
+    return normalized
