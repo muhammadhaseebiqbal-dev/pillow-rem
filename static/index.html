@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Pillow Mockup Generator</title>
-    <!-- Three.js for 3D GLB viewing -->
     <script type="importmap">
     {
         "imports": {
@@ -16,20 +15,22 @@
     </script>
     <style>
         :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --primary-light: #818cf8;
+            /* Solid Color Slick Theme (Zinc-based) */
+            --bg-body: #09090b;
+            --bg-card: #18181b;
+            --bg-hover: #27272a;
+            --border: #27272a;
+            
+            --primary: #3b82f6;       /* Solid Blue */
+            --primary-hover: #2563eb;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            
             --success: #10b981;
             --error: #ef4444;
-            --warning: #f59e0b;
-            --bg-dark: #0f172a;
-            --bg-card: #1e293b;
-            --bg-elevated: #334155;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #475569;
-            --gradient-1: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-            --gradient-2: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+            
+            --radius: 0.75rem;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
         * {
@@ -39,466 +40,287 @@
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
 
+        /* Header */
         header {
+            margin-bottom: 3rem;
             text-align: center;
-            margin-bottom: 2rem;
-            padding: 2rem;
-            background: var(--bg-card);
-            border-radius: 1rem;
-            border: 1px solid var(--border);
         }
 
         h1 {
             font-size: 2.5rem;
-            background: var(--gradient-1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.025em;
             margin-bottom: 0.5rem;
         }
 
         .subtitle {
             color: var(--text-muted);
-            font-size: 1.1rem;
+            font-size: 1.125rem;
         }
 
-        .badge-3d {
-            display: inline-block;
-            background: var(--gradient-2);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.8rem;
-            margin-left: 0.5rem;
-            vertical-align: middle;
-        }
-
-        .stats-bar {
+        /* Tabs */
+        .tabs {
             display: flex;
             justify-content: center;
-            gap: 2rem;
-            margin-top: 1.5rem;
-            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1px;
         }
 
-        .stat-item {
-            text-align: center;
-            padding: 1rem 1.5rem;
-            background: var(--bg-elevated);
-            border-radius: 0.75rem;
-            min-width: 120px;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary-light);
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
+        .tab-btn {
+            background: transparent;
+            border: none;
             color: var(--text-muted);
-            text-transform: uppercase;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
         }
 
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
         .card {
             background: var(--bg-card);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
             border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
         }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .card-title {
+        .section-title {
             font-size: 1.25rem;
             font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
+        /* generator Controls */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        /* Dropzone */
         .drop-zone {
             border: 2px dashed var(--border);
-            border-radius: 0.75rem;
-            padding: 3rem 2rem;
+            border-radius: var(--radius);
+            padding: 3rem;
             text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(99, 102, 241, 0.05);
-        }
-
-        .drop-zone:hover,
-        .drop-zone.drag-over {
-            border-color: var(--primary);
-            background: rgba(99, 102, 241, 0.1);
-        }
-
-        .drop-zone-icon {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .drop-zone-text {
-            color: var(--text-muted);
-        }
-
-        .drop-zone-text strong {
-            color: var(--primary-light);
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        /* Settings selectors */
-        .settings-row {
-            display: flex;
-            gap: 2rem;
-            margin: 1.5rem 0;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .setting-group {
-            text-align: center;
-        }
-
-        .setting-group label {
-            display: block;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .option-selector {
-            display: flex;
-            gap: 0.5rem;
-            background: var(--bg-elevated);
-            padding: 0.25rem;
-            border-radius: 0.5rem;
-        }
-
-        .option-btn {
-            padding: 0.5rem 1rem;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            border-radius: 0.35rem;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 0.85rem;
-        }
-
-        .option-btn:hover {
-            color: var(--text);
-        }
-
-        .option-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
+            background: rgba(255,255,255,0.02);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
             justify-content: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-            text-decoration: none;
+            align-items: center;
         }
 
-        .btn-primary {
-            background: var(--gradient-1);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn-success {
-            background: var(--gradient-2);
-            color: white;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--border);
-            color: var(--text);
-        }
-
-        .btn-outline:hover {
+        .drop-zone:hover {
             border-color: var(--primary);
-            color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
         }
 
-        .btn-sm {
-            padding: 0.5rem 1rem;
+        .drop-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        /* Options */
+        .setting-label {
+            display: block;
+            color: var(--text-muted);
             font-size: 0.875rem;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
         }
 
         .btn-group {
             display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        /* Preview panels */
-        .preview-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        @media (max-width: 900px) {
-            .preview-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .preview-panel {
-            background: var(--bg-elevated);
-            border-radius: 0.75rem;
-            padding: 1rem;
+            background: var(--bg-body);
+            padding: 0.25rem;
+            border-radius: 0.5rem;
             border: 1px solid var(--border);
+            gap: 0.25rem;
+            margin-bottom: 1.5rem;
         }
 
-        .preview-panel h3 {
-            font-size: 0.9rem;
-            margin-bottom: 0.75rem;
-            text-align: center;
-            color: var(--text-muted);
-        }
-
-        .preview-image-container {
-            background: repeating-conic-gradient(#334155 0% 25%, #1e293b 0% 50%) 50% / 16px 16px;
-            border-radius: 0.5rem;
-            min-height: 250px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .preview-image-container img {
-            max-width: 100%;
-            max-height: 280px;
-            object-fit: contain;
-        }
-
-        /* 3D Viewer */
-        .viewer-3d-container {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 0.5rem;
-            min-height: 350px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #viewer3d {
-            width: 100%;
-            height: 350px;
-        }
-
-        .viewer-controls {
-            position: absolute;
-            bottom: 1rem;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 0.5rem;
-            background: rgba(0, 0, 0, 0.5);
+        .option-btn {
+            flex: 1;
             padding: 0.5rem;
-            border-radius: 0.5rem;
-        }
-
-        .viewer-controls button {
-            padding: 0.4rem 0.8rem;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            color: var(--text);
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
             border-radius: 0.25rem;
             cursor: pointer;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .viewer-controls button:hover {
-            background: var(--primary);
+        .option-btn.active {
+            background: var(--bg-hover);
+            color: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
-        .loading-3d {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: var(--text-muted);
-        }
-
-        .loading-3d .spinner-3d {
-            width: 40px;
-            height: 40px;
-            border: 4px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
+        /* Status */
         .status-bar {
-            margin-top: 1rem;
+            margin-top: 1.5rem;
             padding: 1rem;
             border-radius: 0.5rem;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
             display: none;
             align-items: center;
             gap: 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
         }
-
-        .status-bar.loading {
-            display: flex;
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid var(--primary);
-        }
-
-        .status-bar.success {
-            display: flex;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid var(--success);
-            color: var(--success);
-        }
-
-        .status-bar.error {
-            display: flex;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--error);
-            color: var(--error);
-        }
+        
+        .status-bar.loading { display: flex; border-color: var(--primary); color: var(--primary); }
+        .status-bar.error { display: flex; border-color: var(--error); color: var(--error); }
 
         .spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
 
-        /* Toast */
-        .toast-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 1000;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .toast {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1rem 1.5rem;
-            margin-top: 0.5rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            animation: slideIn 0.3s ease;
-        }
-
-        .toast.success {
-            border-color: var(--success);
-        }
-
-        .toast.error {
-            border-color: var(--error);
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* API Info */
-        .api-section {
+        /* Viewer */
+        .viewer-container {
+            height: 400px;
+            background: #000;
+            border-radius: var(--radius);
+            overflow: hidden;
+            position: relative;
             margin-top: 2rem;
+            border: 1px solid var(--border);
+        }
+
+        #viewer3d { width: 100%; height: 100%; }
+
+        /* API Docs */
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
         }
 
         .api-card {
-            background: var(--bg-elevated);
-            border-radius: 0.75rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
+            background: var(--bg-body);
             border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: border-color 0.2s;
         }
 
-        .api-card h4 {
-            margin-bottom: 0.5rem;
+        .api-card:hover {
+            border-color: var(--primary);
         }
 
-        .api-card pre {
-            background: var(--bg-dark);
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            overflow-x: auto;
+        .method {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
             font-size: 0.75rem;
-            margin-top: 0.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
         }
 
-        @media (max-width: 640px) {
-            .container {
-                padding: 1rem;
-            }
+        .method.post { background: rgba(59, 130, 246, 0.1); color: var(--primary); }
+        .method.get { background: rgba(16, 185, 129, 0.1); color: var(--success); }
 
-            h1 {
-                font-size: 1.75rem;
-            }
+        .endpoint-path {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: white;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
 
-            .settings-row {
-                flex-direction: column;
-                gap: 1rem;
-            }
+        .api-desc {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            color: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .action-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -506,459 +328,264 @@
 <body>
     <div class="container">
         <header>
-            <h1>🛋️ 3D Pillow Mockup Generator <span class="badge-3d">GLB Export</span></h1>
-            <p class="subtitle">Upload an image → Background removed → 3D Pillow Mockup (GLB file)</p>
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <div class="stat-value" id="totalImages">-</div>
-                    <div class="stat-label">Images</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="apiStatus">-</div>
-                    <div class="stat-label">API Status</div>
-                </div>
-            </div>
+            <h1>3D Pillow Gen</h1>
+            <p class="subtitle">Solid Color Slick Edition</p>
         </header>
 
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">🎨 Create 3D Pillow Mockup</h2>
-            </div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('generator')">Generator</button>
+            <button class="tab-btn" onclick="switchTab('api')">API Endpoints</button>
+        </div>
 
-            <div class="drop-zone" id="dropZone">
-                <div class="drop-zone-icon">🖼️</div>
-                <p class="drop-zone-text">
-                    <strong>Click to upload</strong> or drag and drop<br>
-                    PNG, JPG, or WebP (max 10MB)
-                </p>
-                <input type="file" class="file-input" id="fileInput" accept="image/png,image/jpeg,image/webp">
-            </div>
+        <!-- GENERATOR TAB -->
+        <div id="generator-tab" class="tab-content active">
+            <div class="card">
+                <div class="section-title">✨ Create New Mockup</div>
+                
+                <div class="controls-grid">
+                    <div class="uploader">
+                        <div class="drop-zone" id="dropZone">
+                            <div class="drop-icon">📂</div>
+                            <p style="color: white; font-weight: 500;">Click to Upload Image</p>
+                            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">PNG, JPG, or WEBP</p>
+                            <input type="file" id="fileInput" hidden accept="image/*">
+                        </div>
+                    </div>
 
-            <div class="settings-row">
-                <div class="setting-group">
-                    <label>Pillow Thickness</label>
-                    <div class="option-selector" id="thicknessSelector">
-                        <button class="option-btn" data-value="thin">Thin</button>
-                        <button class="option-btn active" data-value="medium">Medium</button>
-                        <button class="option-btn" data-value="thick">Thick</button>
+                    <div class="settings">
+                        <div class="setting-group">
+                            <label class="setting-label">Thickness</label>
+                            <div class="btn-group" id="thicknessSelector">
+                                <button class="option-btn" data-value="thin">Thin</button>
+                                <button class="option-btn active" data-value="medium">Medium</button>
+                                <button class="option-btn" data-value="thick">Thick</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Puffiness</label>
+                            <div class="btn-group" id="puffinessSelector">
+                                <button class="option-btn" data-value="flat">Flat</button>
+                                <button class="option-btn active" data-value="medium">Medium</button>
+                                <button class="option-btn" data-value="puffy">Puffy</button>
+                            </div>
+                        </div>
+
+                        <button id="generateBtn" class="action-btn" style="background: var(--primary); border-color: var(--primary); margin-top: 1rem;">
+                            🚀 Generate 3D Model
+                        </button>
                     </div>
                 </div>
-                <div class="setting-group">
-                    <label>Pillow Puffiness</label>
-                    <div class="option-selector" id="puffinessSelector">
-                        <button class="option-btn" data-value="flat">Flat</button>
-                        <button class="option-btn active" data-value="medium">Medium</button>
-                        <button class="option-btn" data-value="puffy">Puffy</button>
-                    </div>
-                </div>
-            </div>
 
-            <div class="status-bar" id="statusBar">
-                <div class="spinner"></div>
-                <span id="statusText">Processing...</span>
-            </div>
-
-            <div class="preview-grid" id="previewSection" style="display: none;">
-                <div class="preview-panel">
-                    <h3>📷 Original Image</h3>
-                    <div class="preview-image-container">
-                        <img id="originalPreview" src="" alt="Original">
-                    </div>
+                <div class="status-bar" id="statusBar">
+                    <div class="spinner"></div>
+                    <span id="statusText">Processing...</span>
                 </div>
-                <div class="preview-panel">
-                    <h3>✂️ Background Removed</h3>
-                    <div class="preview-image-container">
-                        <img id="processedPreview" src="" alt="Processed">
-                    </div>
-                </div>
-            </div>
 
-            <div class="preview-panel" id="viewer3dPanel" style="display: none; margin-top: 1rem;">
-                <h3>🛋️ 3D Pillow Mockup (Interactive)</h3>
-                <div class="viewer-3d-container">
+                <div class="viewer-container" id="viewerContainer" style="display: none;">
                     <div id="viewer3d"></div>
-                    <div class="loading-3d" id="loading3d">
-                        <div class="spinner-3d"></div>
-                        <p>Loading 3D model...</p>
-                    </div>
-                    <div class="viewer-controls">
-                        <button onclick="resetCamera()">🔄 Reset View</button>
-                        <button onclick="toggleAutoRotate()">🔁 Auto Rotate</button>
+                    <div style="position: absolute; bottom: 1rem; width: 100%; text-align: center; pointer-events: none;">
+                        <span style="background: rgba(0,0,0,0.5); padding: 0.5rem 1rem; border-radius: 1rem; color: white; font-size: 0.8rem;">
+                            👇 Left Click to Rotate • Right Click to Pan
+                        </span>
                     </div>
                 </div>
-            </div>
-
-            <div class="btn-group" id="actionButtons" style="display: none; margin-top: 1rem;">
-                <button class="btn btn-primary" id="downloadProcessed">⬇️ Download PNG</button>
-                <button class="btn btn-success" id="downloadGLB">⬇️ Download 3D Model (GLB)</button>
+                
+                <div style="margin-top: 1rem; display: none; gap: 1rem;" id="downloadActions">
+                    <a id="dlGLB" href="#" class="action-btn">⬇️ Download GLB</a>
+                    <a id="dlPDF" href="#" class="action-btn">📄 Download Masonry PDF</a>
+                </div>
             </div>
         </div>
 
-        <!-- API Documentation -->
-        <div class="card api-section">
-            <div class="card-header">
-                <h2 class="card-title">📡 API Endpoints</h2>
-            </div>
+        <!-- API TAB -->
+        <div id="api-tab" class="tab-content">
+            <div class="card">
+                <div class="section-title">🔌 API Documentation</div>
+                <div class="api-grid">
+                    
+                    <!-- Endpoint 1 -->
+                    <div class="api-card">
+                        <span class="method post">POST</span>
+                        <code class="endpoint-path">/api/quick-mockup</code>
+                        <p class="api-desc">Upload an image to instantly get a 3D GLB model.</p>
+                        <a href="/docs#/default/quick_mockup_api_quick_mockup_post" target="_blank" class="action-btn">View Swagger</a>
+                    </div>
 
-            <div class="api-card">
-                <h4><span style="color: var(--success);">POST</span> /api/quick-mockup</h4>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">⚡ Upload image → Remove background → Generate
-                    3D GLB mockup (all in one request)</p>
-                <pre>curl -X POST "http://your-server.com/api/quick-mockup?thickness=medium&puffiness=medium" \
-  -F "file=@design.png" --output pillow.glb</pre>
-                <p style="margin-top: 0.5rem; font-size: 0.85rem;">
-                    <strong>Parameters:</strong><br>
-                    • thickness: <code>thin</code> | <code>medium</code> | <code>thick</code><br>
-                    • puffiness: <code>flat</code> | <code>medium</code> | <code>puffy</code>
-                </p>
-            </div>
+                    <!-- Endpoint 2 -->
+                    <div class="api-card">
+                        <span class="method get">GET</span>
+                        <code class="endpoint-path">/api/pdf/originals</code>
+                        <p class="api-desc">Download a PDF compilation of all original uploaded images.</p>
+                        <a href="/api/pdf/originals" target="_blank" class="action-btn">Download PDF</a>
+                    </div>
 
-            <div class="api-card">
-                <h4><span style="color: #818cf8;">GET</span> /api/pdf/originals</h4>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all original uploaded images
-                </p>
-                <pre>curl "http://your-server.com/api/pdf/originals" --output originals.pdf</pre>
-                <button onclick="window.open('/api/pdf/originals', '_blank')"
-                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📥 Test Download
-                </button>
-            </div>
+                    <!-- Endpoint 3 -->
+                    <div class="api-card">
+                        <span class="method get">GET</span>
+                        <code class="endpoint-path">/api/pdf/processed</code>
+                        <p class="api-desc">Download a PDF of all processed images in Masonry layout.</p>
+                        <a href="/api/pdf/processed?layout=masonry" target="_blank" class="action-btn">Download PDF</a>
+                    </div>
 
-            <div class="api-card">
-                <h4><span style="color: #818cf8;">GET</span> /api/pdf/processed</h4>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all background-removed
-                    images (simple layout)</p>
-                <pre>curl "http://your-server.com/api/pdf/processed" --output processed.pdf</pre>
-                <button onclick="window.open('/api/pdf/processed', '_blank')"
-                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📥 Test Download
-                </button>
-            </div>
-
-            <div class="api-card">
-                <h4><span style="color: #818cf8;">GET</span> /api/pdf/processed-bento</h4>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">📄 Download PDF of all background-removed
-                    images (bento grid layout)</p>
-                <pre>curl "http://your-server.com/api/pdf/processed-bento" --output processed-bento.pdf</pre>
-                <button onclick="window.open('/api/pdf/processed-bento', '_blank')"
-                    style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📥 Test Download
-                </button>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="toast-container" id="toastContainer"></div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // State
-        let selectedThickness = 'medium';
-        let selectedPuffiness = 'medium';
-        let currentImageId = null;
-        let currentProcessedUrl = null;
-        let currentGLBUrl = null;
-
-        // Three.js
         let scene, camera, renderer, controls, model;
-        let autoRotate = false;
+        
+        // Tab Switching
+        window.switchTab = (tabName) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
 
-        // Elements
+        // State
+        let state = {
+            thickness: 'medium',
+            puffiness: 'medium',
+            file: null
+        };
+
+        // Selectors
+        const setupSelector = (id, key) => {
+            const container = document.getElementById(id);
+            container.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state[key] = btn.dataset.value;
+                });
+            });
+        };
+
+        setupSelector('thicknessSelector', 'thickness');
+        setupSelector('puffinessSelector', 'puffiness');
+
+        // File handling
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
-        const statusBar = document.getElementById('statusBar');
-        const statusText = document.getElementById('statusText');
-        const previewSection = document.getElementById('previewSection');
-        const viewer3dPanel = document.getElementById('viewer3dPanel');
-        const actionButtons = document.getElementById('actionButtons');
-        const originalPreview = document.getElementById('originalPreview');
-        const processedPreview = document.getElementById('processedPreview');
-        const loading3d = document.getElementById('loading3d');
 
-        // Initialize Three.js
-        function init3DViewer() {
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                state.file = e.target.files[0];
+                dropZone.querySelector('p').textContent = `File Selected: ${state.file.name}`;
+                dropZone.style.borderColor = 'var(--primary)';
+            }
+        });
+
+        // Generate
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            if (!state.file) return alert('Please upload an image first');
+
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            statusBar.className = 'status-bar loading';
+            statusText.textContent = 'Uploading & Generating 3D Model...';
+
+            const formData = new FormData();
+            formData.append('file', state.file);
+            formData.append('thickness', state.thickness);
+            formData.append('puffiness', state.puffiness);
+
+            try {
+                // Use the new endpoint that stores data (so we can get PDFs later)
+                const res = await fetch('/api/remove-background-with-mockup', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error('Generation failed');
+
+                const data = await res.json();
+                
+                statusBar.className = 'status-bar';
+                statusBar.style.display = 'none';
+
+                // Setup viewer
+                document.getElementById('viewerContainer').style.display = 'block';
+                document.getElementById('downloadActions').style.display = 'flex';
+                
+                // Update links
+                document.getElementById('dlGLB').href = data.data.mockup_url; // Assuming this endpoint returns GLB directly or redirects
+                // Note: The main.py response for remove-background-with-mockup returns JSON with URLs
+                // We need to load the GLB into the viewer
+                
+                loadModel(data.data.mockup_url);
+                
+            } catch (err) {
+                console.error(err);
+                statusBar.className = 'status-bar error';
+                statusText.textContent = 'Error: ' + err.message;
+            }
+        });
+
+        // Three.js
+        function initViewer() {
             const container = document.getElementById('viewer3d');
-            if (!container) return;
-
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a2e);
+            scene.background = new THREE.Color(0x18181b); // Match card bg
 
             camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(0, 0.5, 2);
+            camera.position.set(0, 0, 3);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
 
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
 
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
+            const light = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(light);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+            dirLight.position.set(5, 5, 5);
+            scene.add(dirLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 5, 5);
-            scene.add(directionalLight);
-
-            const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
-            backLight.position.set(-5, 5, -5);
-            scene.add(backLight);
-
-            // Animation loop
             function animate() {
                 requestAnimationFrame(animate);
-                if (autoRotate && model) {
-                    model.rotation.y += 0.005;
-                }
                 controls.update();
                 renderer.render(scene, camera);
             }
             animate();
-
-            // Handle resize
-            window.addEventListener('resize', () => {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
         }
 
-        function loadGLBModel(url) {
-            loading3d.style.display = 'block';
-
-            // Remove existing model
-            if (model) {
-                scene.remove(model);
-            }
+        function loadModel(url) {
+            // If scene not init, init
+            if (!scene) initViewer();
+            
+            // Clear old
+            if (model) scene.remove(model);
 
             const loader = new GLTFLoader();
-            loader.load(url,
-                (gltf) => {
-                    model = gltf.scene;
-
-                    // Center and scale the model
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 1.5 / maxDim;
-
-                    model.scale.setScalar(scale);
-                    model.position.sub(center.multiplyScalar(scale));
-
-                    scene.add(model);
-                    loading3d.style.display = 'none';
-                    showToast('3D model loaded!', 'success');
-                },
-                (progress) => {
-                    // Progress
-                },
-                (error) => {
-                    console.error('Error loading GLB:', error);
-                    loading3d.innerHTML = '<p style="color: var(--error);">Failed to load 3D model</p>';
-                    showToast('Failed to load 3D model', 'error');
-                }
-            );
-        }
-
-        window.resetCamera = function () {
-            if (camera && controls) {
-                camera.position.set(0, 0.5, 2);
-                controls.reset();
-            }
-        };
-
-        window.toggleAutoRotate = function () {
-            autoRotate = !autoRotate;
-            showToast(autoRotate ? 'Auto-rotate ON' : 'Auto-rotate OFF', 'success');
-        };
-
-        // Option selectors
-        document.querySelectorAll('#thicknessSelector .option-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('#thicknessSelector .option-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedThickness = btn.dataset.value;
+            loader.load(url, (gltf) => {
+                model = gltf.scene;
+                scene.add(model);
+                
+                // Center
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+                
+                // Scale
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                element_scale = 2 / maxDim;
+                model.scale.setScalar(element_scale);
             });
-        });
-
-        document.querySelectorAll('#puffinessSelector .option-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('#puffinessSelector .option-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedPuffiness = btn.dataset.value;
-            });
-        });
-
-        // Drop zone
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-        dropZone.addEventListener('drop', e => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
-        fileInput.addEventListener('change', e => {
-            if (e.target.files.length) handleFile(e.target.files[0]);
-        });
-
-        async function handleFile(file) {
-            if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-                showToast('Please upload PNG, JPG, or WebP', 'error');
-                return;
-            }
-            if (file.size > 10 * 1024 * 1024) {
-                showToast('File must be under 10MB', 'error');
-                return;
-            }
-
-            showStatus('loading', '1/3: Uploading image...');
-            previewSection.style.display = 'none';
-            viewer3dPanel.style.display = 'none';
-            actionButtons.style.display = 'none';
-
-            // Show original preview
-            const reader = new FileReader();
-            reader.onload = e => { originalPreview.src = e.target.result; };
-            reader.readAsDataURL(file);
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                showStatus('loading', '2/3: Removing background & generating 3D...');
-
-                const response = await fetch(
-                    `/api/quick-mockup?thickness=${selectedThickness}&puffiness=${selectedPuffiness}`,
-                    {
-                        method: 'POST',
-                        body: formData
-                    }
-                );
-
-                if (response.ok) {
-                    showStatus('loading', '3/3: Loading 3D viewer...');
-
-                    // Get GLB file directly
-                    const glbBlob = await response.blob();
-                    const glbUrl = URL.createObjectURL(glbBlob);
-
-                    currentGLBUrl = glbUrl;
-                    currentImageId = null; // No database storage
-                    currentProcessedUrl = null;
-
-                    // Show processed preview (use original for now since no separate processed image)
-                    processedPreview.src = originalPreview.src;
-
-                    // Show panels
-                    previewSection.style.display = 'grid';
-                    viewer3dPanel.style.display = 'block';
-                    actionButtons.style.display = 'flex';
-
-                    // Initialize 3D viewer if not done
-                    if (!renderer) {
-                        init3DViewer();
-                    }
-
-                    // Load the GLB model
-                    loadGLBModel(currentGLBUrl);
-
-                    showStatus('success', `✓ Complete! GLB size: ${formatBytes(glbBlob.size)}`);
-                    loadStats();
-                } else {
-                    const errorText = await response.text();
-                    showStatus('error', errorText || 'Processing failed');
-                    showToast(errorText || 'Error', 'error');
-                }
-            } catch (error) {
-                showStatus('error', 'Network error');
-                showToast('Network error', 'error');
-                console.error(error);
-            }
         }
-
-        function showStatus(type, message) {
-            statusBar.className = 'status-bar ' + type;
-            statusText.textContent = message;
-        }
-
-        function formatBytes(bytes) {
-            if (!bytes) return '0 B';
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-        }
-
-        // Download buttons
-        document.getElementById('downloadProcessed').addEventListener('click', () => {
-            if (currentProcessedUrl) downloadFile(currentProcessedUrl, 'background-removed.png');
-        });
-
-        document.getElementById('downloadGLB').addEventListener('click', () => {
-            if (currentGLBUrl) {
-                // For GLB, we need to fetch and save the blob
-                fetch(currentGLBUrl)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        downloadFile(url, 'pillow-mockup.glb');
-                        URL.revokeObjectURL(url);
-                    });
-            }
-        });
-
-        function downloadFile(url, filename) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-        // Health check
-        async function checkHealth() {
-            try {
-                const response = await fetch('/health');
-                const result = await response.json();
-                document.getElementById('apiStatus').textContent = result.status === 'healthy' ? '✓ Online' : 'Offline';
-            } catch (e) {
-                document.getElementById('apiStatus').textContent = '✕ Offline';
-            }
-        }
-
-        // Stats
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const result = await response.json();
-                document.getElementById('totalImages').textContent = result.total_images;
-            } catch (e) { }
-        }
-
-        // Toast
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.getElementById('toastContainer').appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        // Init
-        loadStats();
-        checkHealth();
     </script>
 </body>
-
 </html>

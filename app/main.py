@@ -89,6 +89,39 @@ for dir_path in [UPLOAD_DIR, PROCESSED_DIR, MOCKUP_DIR, STATIC_DIR, PDF_DIR, GLB
     os.makedirs(dir_path, exist_ok=True)
 
 
+def resolve_path(path_str: str) -> str:
+    """
+    Resolve a stored path to an absolute system path.
+    Handles both relative paths (new format) and absolute paths (legacy/local).
+    """
+    if not path_str:
+        return ""
+        
+    # If it's already an absolute path and exists, use it (Legacy support)
+    if os.path.isabs(path_str) and os.path.exists(path_str):
+        return path_str
+        
+    # If it's absolute but doesn't exist, it might be from a different env (Docker vs Local)
+    # Try making it relative to the current BASE_DIR
+    if os.path.isabs(path_str):
+        # specific for this app structure: try to find 'data' in the path
+        if 'data' in path_str:
+            try:
+                # Extract part after 'data'
+                rel_part = path_str[path_str.index('data'):]
+                return os.path.join(BASE_DIR, rel_part)
+            except:
+                pass
+        # Fallback: assume filename is in uploads or processed based on naming
+        if "_processed" in path_str:
+             return os.path.join(PROCESSED_DIR, os.path.basename(path_str))
+        else:
+             return os.path.join(UPLOAD_DIR, os.path.basename(path_str))
+             
+    # It's a relative path (New format)
+    return os.path.join(BASE_DIR, path_str)
+
+
 async def process_image_async(file_content: bytes) -> bytes:
     """Process image in a separate process for true parallelism."""
     loop = asyncio.get_event_loop()
@@ -154,10 +187,15 @@ async def remove_background_endpoint(
         await save_file_async(processed_path, processed_bytes)
         
         # Store in database
+        # Store normalized relative paths in database
+        rel_original_path = os.path.relpath(original_path, BASE_DIR)
+        rel_processed_path = os.path.relpath(processed_path, BASE_DIR)
+        
+        # Store in database
         image_record = ImageRecord(
             filename=file.filename,
-            original_path=original_path,
-            processed_path=processed_path,
+            original_path=rel_original_path,
+            processed_path=rel_processed_path,
             original_size=len(file_content),
             processed_size=len(processed_bytes)
         )
@@ -189,10 +227,11 @@ async def get_original_image(image_id: int, db: Session = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=404, detail="Image not found")
     
-    if not os.path.exists(record.original_path):
+    file_path = resolve_path(record.original_path)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Original image file not found")
     
-    return FileResponse(record.original_path)
+    return FileResponse(file_path)
 
 
 @app.get("/api/images/{image_id}/processed")
@@ -202,10 +241,11 @@ async def get_processed_image(image_id: int, db: Session = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=404, detail="Image not found")
     
-    if not os.path.exists(record.processed_path):
+    file_path = resolve_path(record.processed_path)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Processed image file not found")
     
-    return FileResponse(record.processed_path, media_type="image/png")
+    return FileResponse(file_path, media_type="image/png")
 
 
 @app.get("/api/images")
@@ -227,10 +267,13 @@ async def delete_image(image_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Image not found")
     
     # Delete files
-    if os.path.exists(record.original_path):
-        os.remove(record.original_path)
-    if os.path.exists(record.processed_path):
-        os.remove(record.processed_path)
+    orig_path = resolve_path(record.original_path)
+    proc_path = resolve_path(record.processed_path)
+    
+    if os.path.exists(orig_path):
+        os.remove(orig_path)
+    if os.path.exists(proc_path):
+        os.remove(proc_path)
     
     # Delete database record
     db.delete(record)
@@ -394,7 +437,11 @@ async def generate_originals_pdf(db: Session = Depends(get_db)):
     if not records:
         raise HTTPException(status_code=404, detail="No images found")
     
-    image_paths = [r.original_path for r in records if os.path.exists(r.original_path)]
+    image_paths = []
+    for r in records:
+        path = resolve_path(r.original_path)
+        if os.path.exists(path):
+            image_paths.append(path)
     
     if not image_paths:
         raise HTTPException(status_code=404, detail="No image files found")
@@ -430,7 +477,11 @@ async def generate_processed_pdf(
     if not records:
         raise HTTPException(status_code=404, detail="No images found")
     
-    image_paths = [r.processed_path for r in records if os.path.exists(r.processed_path)]
+    image_paths = []
+    for r in records:
+        path = resolve_path(r.processed_path)
+        if os.path.exists(path):
+            image_paths.append(path)
     
     if not image_paths:
         raise HTTPException(status_code=404, detail="No processed image files found")
@@ -476,10 +527,13 @@ async def generate_combined_pdf(db: Session = Depends(get_db)):
     # Get all image paths (original first, then processed)
     all_paths = []
     for r in records:
-        if os.path.exists(r.original_path):
-            all_paths.append(r.original_path)
-        if os.path.exists(r.processed_path):
-            all_paths.append(r.processed_path)
+        orig = resolve_path(r.original_path)
+        proc = resolve_path(r.processed_path)
+        
+        if os.path.exists(orig):
+            all_paths.append(orig)
+        if os.path.exists(proc):
+            all_paths.append(proc)
     
     if not all_paths:
         raise HTTPException(status_code=404, detail="No image files found")
@@ -548,12 +602,13 @@ async def get_pillow_mockup(
     if not record:
         raise HTTPException(status_code=404, detail="Image not found")
     
-    if not os.path.exists(record.processed_path):
+    proc_path = resolve_path(record.processed_path)
+    if not os.path.exists(proc_path):
         raise HTTPException(status_code=404, detail="Processed image file not found")
     
     try:
         # Read the processed image
-        with open(record.processed_path, "rb") as f:
+        with open(proc_path, "rb") as f:
             processed_bytes = f.read()
         
         # Generate 3D mockup
@@ -678,11 +733,17 @@ async def remove_background_with_mockup(
         # Save GLB file
         await save_file_async(glb_path, glb_bytes)
         
+        # Store normalized relative paths in database
+        # This ensures paths work even if the app directory moves (e.g. inside Docker)
+        rel_original_path = os.path.relpath(original_path, BASE_DIR)
+        rel_processed_path = os.path.relpath(processed_path, BASE_DIR)
+        rel_glb_path = os.path.relpath(glb_path, BASE_DIR)
+        
         # Store in database
         image_record = ImageRecord(
             filename=file.filename,
-            original_path=original_path,
-            processed_path=processed_path,
+            original_path=rel_original_path,
+            processed_path=rel_processed_path,
             original_size=len(file_content),
             processed_size=len(processed_bytes)
         )

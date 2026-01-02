@@ -69,7 +69,7 @@ def create_simple_pdf(image_paths: List[str], title: str = "Images") -> bytes:
     return buffer.getvalue()
 
 
-def create_masonry_pdf(image_paths: List[str], title: str = "Gallery", columns: int = 2) -> bytes:
+def create_masonry_pdf(image_paths: List[str], title: str = "Gallery", columns: int = 3) -> bytes:
     """
     Create a PDF with images in masonry/bento grid layout.
     
@@ -87,8 +87,8 @@ def create_masonry_pdf(image_paths: List[str], title: str = "Gallery", columns: 
     c = canvas.Canvas(buffer, pagesize=landscape(A4))
     c.setTitle(title)
     
-    margin = 0.4 * inch
-    gap = 0.15 * inch
+    margin = 0.25 * inch
+    gap = 0.05 * inch
     col_width = (page_width - 2 * margin - (columns - 1) * gap) / columns
     
     # Track column heights
