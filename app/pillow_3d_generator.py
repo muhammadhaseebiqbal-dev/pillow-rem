@@ -159,7 +159,37 @@ def create_3d_pillow_mockup(
             all_faces.append([v0, v1, v2])
             all_faces.append([v0, v2, v3])
 
-# ... (helper code below)
+    # ============ CREATE SINGLE MESH ============
+    combined_mesh = trimesh.Trimesh(
+        vertices=np.array(all_vertices),
+        faces=np.array(all_faces),
+        process=False,  # CRITICAL: Prevent vertex merging so UVs match vertices
+        validate=False  # Skip validation for faster export
+    )
+    # Skip fix_normals for speed - normals are generally correct
+    
+    # Apply texture with pre-computed UVs
+    uv_array = np.array(all_uvs)
+    
+    material = trimesh.visual.material.PBRMaterial(
+        baseColorFactor=[1.0, 1.0, 1.0, 1.0],
+        metallicFactor=0.0,
+        roughnessFactor=0.6,
+        baseColorTexture=texture_image
+    )
+    
+    combined_mesh.visual = trimesh.visual.TextureVisuals(
+        uv=uv_array,
+        material=material,
+        image=texture_image
+    )
+    
+    # ============ EXPORT TO GLB ============
+    combined_mesh.apply_scale(scale)
+    
+    glb_bytes = combined_mesh.export(file_type='glb', include_normals=False)  # Skip normal export for speed
+    return bytes(glb_bytes) if not isinstance(glb_bytes, bytes) else glb_bytes
+
 
 def prepare_texture_with_strip(design: Image.Image) -> tuple[Image.Image, float]:
     """
