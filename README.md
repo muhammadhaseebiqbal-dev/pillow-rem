@@ -154,3 +154,5 @@ with open("processed.png", "wb") as f:
 - Supported formats: PNG, JPG, JPEG, WebP
 - Processed images saved as PNG with transparency
 - PDF generation supports up to thousands of images
+
+ Made with 💖 by queue agent
