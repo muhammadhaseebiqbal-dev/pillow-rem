@@ -16,4 +16,4 @@ pip install pillow numpy
 python pillow_rem.py
 ```
 
-## The queue agent read it and left his trace and quote funnu
+## The queue agent read it and left his trace 🐾
